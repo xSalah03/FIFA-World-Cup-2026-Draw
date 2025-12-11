@@ -5,7 +5,8 @@ export enum Confederation {
   CAF = 'CAF',
   AFC = 'AFC',
   CONCACAF = 'CONCACAF',
-  OFC = 'OFC'
+  OFC = 'OFC',
+  FIFA = 'FIFA' // Used for multi-confederation play-off spots
 }
 
 export type Theme = 'light' | 'dark' | 'system';
