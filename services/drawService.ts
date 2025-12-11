@@ -2,19 +2,15 @@
 import { Group, Team, Confederation } from '../types';
 
 /**
- * Checks if a team can be placed in a specific group based on FIFA constraints.
- * Rule 1: No group can contain more than one team from the same Confederation, EXCEPT for UEFA.
- * Rule 2: A maximum of two UEFA teams are allowed per group.
- * Rule 3: STRICT POT CONSTRAINT - A group can only have ONE team from each pot.
- * Rule 4: FIFA Play-Off Neutrality - Teams with Confederation.FIFA can go anywhere.
+ * Basic validity check for a single team in a group.
  */
 export const isValidPlacement = (team: Team, group: Group): boolean => {
   const currentTeams = group.teams;
   
-  // Rule 3: One team per pot
+  // Rule: One team per pot
   if (currentTeams.some(t => t.pot === team.pot)) return false;
 
-  // Rule 4: Neutral placeholder for inter-confed play-offs
+  // Rule: FIFA Play-Off Neutrality
   if (team.confederation === Confederation.FIFA) return true;
 
   const confedCounts: Record<Confederation, number> = {
@@ -37,30 +33,81 @@ export const isValidPlacement = (team: Team, group: Group): boolean => {
     // UEFA Exception: Max 2 teams
     return confedCounts[Confederation.UEFA] < 2;
   } else {
-    // Same-Confederation Limit: Max 1 team (excluding UEFA and FIFA)
+    // Same-Confederation Limit: Max 1 team
     return confedCounts[targetConfed] === 0;
   }
 };
 
-export const findFirstValidGroupIndex = (team: Team, groups: Group[]): number => {
-  // Competitive Balance: Protect quadrants for top seeds in Pot 1
-  if (team.pot === 1 && !team.isHost && team.rank <= 4) {
-    const preferredGroups: number[] = [];
-    if (team.id === 'ARG') preferredGroups.push(4, 5, 6); 
-    if (team.id === 'FRA') preferredGroups.push(7, 8);    
-    if (team.id === 'ESP') preferredGroups.push(9, 10);   
-    if (team.id === 'ENG') preferredGroups.push(11);      
+/**
+ * Recursive backtracking solver to check if the remaining teams in a pot
+ * can be legally placed in the remaining available groups.
+ */
+const canCompletePot = (
+  remainingTeams: Team[],
+  groups: Group[],
+  usedGroupIndices: Set<number>
+): boolean => {
+  if (remainingTeams.length === 0) return true;
+
+  const [currentTeam, ...nextTeams] = remainingTeams;
+
+  for (let i = 0; i < groups.length; i++) {
+    // Skip groups that already have a team from this pot
+    // (either already in group.teams or assigned in this recursion)
+    if (usedGroupIndices.has(i)) continue;
     
-    for (const idx of preferredGroups) {
-      if (isValidPlacement(team, groups[idx])) return idx;
+    const group = groups[i];
+    
+    if (isValidPlacement(currentTeam, group)) {
+      usedGroupIndices.add(i);
+      if (canCompletePot(nextTeams, groups, usedGroupIndices)) {
+        return true;
+      }
+      usedGroupIndices.delete(i);
     }
   }
 
-  for (let i = 0; i < groups.length; i++) {
-    if (isValidPlacement(team, groups[i])) {
-      return i;
+  return false;
+};
+
+/**
+ * Finds a group index that is not only currently valid, but also "safe"
+ * (doesn't lead to a deadlock for the rest of the pot).
+ */
+export const findSafeGroupIndex = (
+  team: Team,
+  allTeamsInPot: Team[],
+  currentTeamIndex: number,
+  groups: Group[]
+): number => {
+  const remainingTeamsInPot = allTeamsInPot.slice(currentTeamIndex + 1);
+  
+  // Shuffle search order to keep draws varied
+  const groupIndices = shuffle([...Array(groups.length).keys()]);
+
+  for (const idx of groupIndices) {
+    const group = groups[idx];
+    
+    if (isValidPlacement(team, group)) {
+      // Create a set of group indices that are "occupied" for this pot
+      // 1. Groups that already have a team from this pot
+      const occupied = new Set<number>();
+      groups.forEach((g, i) => {
+        if (g.teams.some(t => t.pot === team.pot)) {
+          occupied.add(i);
+        }
+      });
+      
+      // 2. Add the group we are currently testing
+      occupied.add(idx);
+
+      // Check if this choice leaves a valid path for the rest
+      if (canCompletePot(remainingTeamsInPot, groups, occupied)) {
+        return idx;
+      }
     }
   }
+
   return -1;
 };
 
