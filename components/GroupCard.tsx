@@ -2,18 +2,19 @@
 import React, { useState } from 'react';
 import { Group, Team, Confederation } from '../types';
 import { TeamIcon } from './TeamIcon';
-import { isValidPlacement } from '../services/drawService';
-import { AlertCircle, Lock } from 'lucide-react';
+import { isValidPlacement, isValidSwap } from '../services/drawService';
+import { AlertCircle, Lock, CheckCircle2, ArrowLeftRight } from 'lucide-react';
 
 interface GroupCardProps {
   group: Group;
+  allGroups: Group[];
   draggedTeam: Team | null;
   onMoveTeam: (teamId: string, fromGroupId: string | null, toGroupId: string) => void;
   onDragStart: (team: Team) => void;
   onDragEnd: () => void;
 }
 
-const GroupCard: React.FC<GroupCardProps> = ({ group, draggedTeam, onMoveTeam, onDragStart, onDragEnd }) => {
+const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, onMoveTeam, onDragStart, onDragEnd }) => {
   const [isOver, setIsOver] = useState(false);
   const slots = [1, 2, 3, 4];
 
@@ -44,61 +45,65 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, draggedTeam, onMoveTeam, o
     onMoveTeam(teamId, fromGroupId, group.id);
   };
 
-  // Logic to determine WHY a group is invalid
-  const getInvalidReason = (team: Team, targetGroup: Group): string | null => {
-    // 1. Host constraints
-    if (team.isHost) {
-      if (team.id === 'MEX' && targetGroup.id !== 'A') return "Mexico must be in Group A";
-      if (team.id === 'CAN' && targetGroup.id !== 'B') return "Canada must be in Group B";
-      if (team.id === 'USA' && targetGroup.id !== 'D') return "USA must be in Group D";
-    }
+  const getTargetTeam = (dragged: Team) => group.teams.find(t => t.pot === dragged.pot);
 
-    // 2. Already in group
-    if (targetGroup.teams.some(t => t.id === team.id)) return "Already in this group";
+  const getActionReason = (dragged: Team, targetGroup: Group): { type: 'valid' | 'invalid' | 'swap', text: string } => {
+    const existing = getTargetTeam(dragged);
+    const fromGroupId = (document.querySelector(`[data-team-id="${dragged.id}"]`)?.getAttribute('data-group-id')) || null;
+    const sourceGroup = fromGroupId ? allGroups.find(g => g.id === fromGroupId) : null;
 
-    // 3. Pot occupied
-    if (targetGroup.teams.some(t => t.pot === team.pot)) return `Pot ${team.pot} already filled`;
-
-    // 4. Confederation limits (checking same logic as isValidPlacement but returning string)
-    const currentTeams = targetGroup.teams;
-    if (team.confederation !== Confederation.FIFA) {
-      const uefaCount = currentTeams.filter(t => t.confederation === Confederation.UEFA).length;
-      if (team.confederation === Confederation.UEFA && uefaCount >= 2) return "Max 2 UEFA teams allowed";
-      if (team.confederation !== Confederation.UEFA && currentTeams.some(t => t.confederation === team.confederation)) {
-        return `Limit: 1 ${team.confederation} team`;
+    if (existing) {
+      if (!sourceGroup) {
+        return { type: 'invalid', text: `Pot ${dragged.pot} Slot Occupied` };
       }
+      if (isValidSwap(dragged, sourceGroup, existing, targetGroup)) {
+        return { type: 'swap', text: `Swap with ${existing.name}` };
+      }
+      return { type: 'invalid', text: 'Invalid Swap (Rules)' };
     }
 
-    return null;
+    // Host locks
+    if (dragged.isHost) {
+      if (dragged.id === 'MEX' && targetGroup.id !== 'A') return { type: 'invalid', text: "Locked to Group A" };
+      if (dragged.id === 'CAN' && targetGroup.id !== 'B') return { type: 'invalid', text: "Locked to Group B" };
+      if (dragged.id === 'USA' && targetGroup.id !== 'D') return { type: 'invalid', text: "Locked to Group D" };
+    }
+
+    if (!isValidPlacement(dragged, targetGroup)) {
+      const uefaCount = targetGroup.teams.filter(t => t.confederation === Confederation.UEFA).length;
+      if (dragged.confederation === Confederation.UEFA && uefaCount >= 2) return { type: 'invalid', text: "Limit: 2 UEFA Teams" };
+      if (dragged.confederation !== Confederation.UEFA && targetGroup.teams.some(t => t.confederation === dragged.confederation)) {
+        return { type: 'invalid', text: `Limit: 1 ${dragged.confederation} Team` };
+      }
+      return { type: 'invalid', text: "Rule Violation" };
+    }
+
+    return { type: 'valid', text: 'Valid Spot' };
   };
 
   const isAlreadyInGroup = draggedTeam && group.teams.some(t => t.id === draggedTeam.id);
-  const invalidReason = draggedTeam ? getInvalidReason(draggedTeam, group) : null;
-  const isValidTarget = draggedTeam && !invalidReason;
+  const action = draggedTeam && !isAlreadyInGroup ? getActionReason(draggedTeam, group) : null;
+  const isValidTarget = action?.type === 'valid' || action?.type === 'swap';
 
-  // Dynamic status for visual feedback
   let borderStyle = 'border-slate-200 dark:border-slate-800';
   let bgStyle = 'bg-white dark:bg-slate-900/80';
-  let headerStyle = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800';
-  let containerScale = 'scale-100';
+  let shadowStyle = 'shadow-sm dark:shadow-none';
 
   if (draggedTeam && !isAlreadyInGroup) {
     if (isOver) {
       if (isValidTarget) {
-        borderStyle = 'border-emerald-500 ring-4 ring-emerald-500/20 z-10';
-        bgStyle = 'bg-emerald-50/40 dark:bg-emerald-950/30';
-        headerStyle = 'bg-emerald-500 text-white border-emerald-500';
-        containerScale = 'scale-[1.04]';
+        borderStyle = action?.type === 'swap' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-emerald-500 ring-2 ring-emerald-500/20';
+        bgStyle = action?.type === 'swap' ? 'bg-indigo-50/20 dark:bg-indigo-950/20' : 'bg-emerald-50/20 dark:bg-emerald-950/20';
+        shadowStyle = action?.type === 'swap' ? 'shadow-[0_0_30px_rgba(99,102,241,0.15)]' : 'shadow-[0_0_30px_rgba(16,185,129,0.15)]';
       } else {
-        borderStyle = 'border-rose-500 ring-4 ring-rose-500/20 z-10';
-        bgStyle = 'bg-rose-50/40 dark:bg-rose-950/30';
-        headerStyle = 'bg-rose-500 text-white border-rose-500';
-        containerScale = 'scale-[0.96]';
+        borderStyle = 'border-rose-500 ring-2 ring-rose-500/20';
+        bgStyle = 'bg-rose-50/20 dark:bg-rose-950/20';
+        shadowStyle = 'shadow-[0_0_30px_rgba(244,63,94,0.15)]';
       }
     } else if (isValidTarget) {
-      // Pulsing highlight for all valid targets
-      borderStyle = 'border-emerald-500/60 ring-2 ring-emerald-500/10 shadow-lg animate-pulse';
-      bgStyle = 'bg-emerald-50/10 dark:bg-emerald-950/10';
+      borderStyle = action?.type === 'swap' ? 'border-indigo-400/50 dark:border-indigo-500/30 ring-1 ring-indigo-400/10' : 'border-emerald-400/50 dark:border-emerald-500/30 ring-1 ring-emerald-400/10';
+      bgStyle = action?.type === 'swap' ? 'bg-indigo-50/5 dark:bg-indigo-950/5' : 'bg-emerald-50/5 dark:bg-emerald-950/5';
+      shadowStyle = action?.type === 'swap' ? 'shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'shadow-[0_0_15px_rgba(16,185,129,0.1)]';
     }
   }
 
@@ -107,54 +112,51 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, draggedTeam, onMoveTeam, o
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative border rounded-xl overflow-hidden transition-all duration-300 shadow-sm dark:shadow-lg ${borderStyle} ${bgStyle} ${containerScale}`}
+      className={`relative border rounded-xl overflow-hidden transition-all duration-300 ${borderStyle} ${bgStyle} ${shadowStyle}`}
     >
-      <div className={`px-4 py-2 border-b transition-all flex justify-between items-center ${headerStyle}`}>
-        <h3 className={`font-black text-lg tracking-wider italic ${isOver ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`}>
-          GROUP {group.name}
-        </h3>
-        <div className="flex gap-1">
-          {slots.map(s => {
-            const hasTeam = group.teams.some(t => t.pot === s);
-            const isTargetSlot = draggedTeam && draggedTeam.pot === s && !isOver;
-            return (
-              <div 
-                key={s} 
-                className={`w-2 h-2 rounded-full transition-all duration-500 ${
-                  hasTeam 
-                    ? 'bg-indigo-600 dark:bg-indigo-500' 
-                    : isTargetSlot && isValidTarget
-                      ? 'bg-emerald-400 animate-bounce'
-                      : 'bg-slate-300 dark:bg-slate-700'
-                }`} 
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {isOver && draggedTeam && !isAlreadyInGroup && !isValidTarget && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center p-4 bg-rose-900/40 backdrop-blur-[1px] pointer-events-none transition-opacity duration-200">
-          <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-2xl flex flex-col items-center gap-2 text-center animate-in zoom-in-95 fade-in">
-            {draggedTeam.isHost ? <Lock className="text-rose-500" size={24} /> : <AlertCircle className="text-rose-500" size={24} />}
-            <p className="text-[11px] font-black text-rose-600 dark:text-rose-400 uppercase leading-tight tracking-tight">
-              {invalidReason || "Invalid Move"}
-            </p>
+      {isOver && draggedTeam && !isAlreadyInGroup && action && (
+        <div className="absolute top-12 left-0 right-0 z-30 flex justify-center px-4 pointer-events-none animate-in slide-in-from-top-2 duration-200">
+          <div className={`px-3 py-1.5 rounded-full shadow-xl flex items-center gap-2 border text-white ${
+            action.type === 'swap' ? 'bg-indigo-600 border-indigo-400' :
+            action.type === 'valid' ? 'bg-emerald-600 border-emerald-400' : 
+            'bg-rose-600 border-rose-400'
+          }`}>
+            {action.type === 'swap' ? <ArrowLeftRight size={14} /> : 
+             action.type === 'valid' ? <CheckCircle2 size={14} /> : 
+             <AlertCircle size={14} />}
+            <span className="text-[10px] font-black uppercase tracking-wider">{action.text}</span>
           </div>
         </div>
       )}
 
-      {isOver && draggedTeam && isValidTarget && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <div className="bg-emerald-500/20 rounded-full w-24 h-24 animate-ping" />
+      <div className={`px-4 py-2 border-b transition-all flex justify-between items-center ${
+        isOver ? (isValidTarget ? (action?.type === 'swap' ? 'bg-indigo-600 border-indigo-600' : 'bg-emerald-600 border-emerald-600') : 'bg-rose-600 border-rose-600') : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+      }`}>
+        <h3 className={`font-black text-lg tracking-wider italic ${isOver ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`}>
+          GROUP {group.name}
+        </h3>
+        <div className="flex gap-1">
+          {slots.map(s => (
+            <div 
+              key={s} 
+              className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                group.teams.some(t => t.pot === s)
+                  ? (isOver && !isValidTarget ? 'bg-white/40' : 'bg-indigo-600 dark:bg-indigo-500') 
+                  : draggedTeam?.pot === s && isValidTarget
+                    ? (action?.type === 'swap' ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-400 animate-bounce')
+                    : 'bg-slate-300 dark:bg-slate-700'
+              }`} 
+            />
+          ))}
         </div>
-      )}
+      </div>
 
       <div className="p-3 space-y-2 min-h-[160px]">
         {slots.map((potNum) => {
           const team = group.teams.find(t => t.pot === potNum);
           const isBeingDragged = draggedTeam && team && draggedTeam.id === team.id;
-          const isTargetPot = draggedTeam && !team && draggedTeam.pot === potNum && isOver && isValidTarget;
+          const isSwapTarget = draggedTeam && team && action?.type === 'swap' && draggedTeam.pot === potNum && isOver;
+          const isTargetPot = draggedTeam && !team && draggedTeam.pot === potNum && isOver && action?.type === 'valid';
 
           return (
             <div 
@@ -162,26 +164,34 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, draggedTeam, onMoveTeam, o
               draggable={!!team}
               onDragStart={(e) => team && handleDragStart(e, team)}
               onDragEnd={onDragEnd}
+              data-team-id={team?.id}
+              data-group-id={group.id}
               className={`group flex items-center gap-3 h-10 px-3 rounded border transition-all duration-300 ${
                 team 
                   ? isBeingDragged 
-                    ? 'opacity-20 border-dashed border-slate-300 scale-95'
-                    : 'bg-white dark:bg-slate-800 border-indigo-100 dark:border-indigo-500/30 text-slate-800 dark:text-slate-100 cursor-grab active:cursor-grabbing hover:border-indigo-300 dark:hover:border-indigo-500/60 shadow-sm' 
+                    ? 'opacity-20 border-dashed border-slate-300 scale-95 grayscale'
+                    : isSwapTarget
+                      ? 'bg-indigo-100/80 dark:bg-indigo-900/60 border-indigo-500 ring-2 ring-indigo-500/30'
+                      : 'bg-white dark:bg-slate-800 border-indigo-100 dark:border-indigo-500/30 text-slate-800 dark:text-slate-100 cursor-grab active:cursor-grabbing hover:border-indigo-300 dark:hover:border-indigo-500/60 shadow-sm' 
                   : isTargetPot
-                    ? 'bg-emerald-100/50 dark:bg-emerald-900/40 border-emerald-500 border-solid ring-2 ring-emerald-500/20'
+                    ? 'bg-emerald-100/50 dark:bg-emerald-900/40 border-emerald-500 border-solid ring-2 ring-emerald-500/10'
                     : 'bg-slate-50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900 text-slate-300 dark:text-slate-700 border-dashed'
               }`}
             >
-              <div className={`w-8 text-[9px] font-black uppercase tracking-tighter transition-colors ${isTargetPot ? 'text-emerald-600' : 'text-slate-400 dark:text-slate-600'}`}>P{potNum}</div>
+              <div className={`w-8 text-[9px] font-black uppercase tracking-tighter transition-colors ${isTargetPot ? 'text-emerald-600' : isSwapTarget ? 'text-indigo-600' : 'text-slate-400 dark:text-slate-600'}`}>P{potNum}</div>
               {team ? (
                 <>
                   <TeamIcon code={team.flagCode} name={team.name} className="w-5 h-3.5" />
                   <span className="font-bold flex-1 truncate text-xs sm:text-sm">{team.name}</span>
-                  <span className="text-[9px] bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase">{team.confederation}</span>
+                  {isSwapTarget ? (
+                    <ArrowLeftRight size={14} className="text-indigo-600 animate-spin-slow" />
+                  ) : (
+                    <span className="text-[9px] bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase">{team.confederation}</span>
+                  )}
                 </>
               ) : (
-                <span className={`text-[10px] font-mono transition-opacity ${isTargetPot ? 'text-emerald-600 opacity-100 font-bold' : 'opacity-20'}`}>
-                  {isTargetPot ? `Drop ${draggedTeam.name} Here` : '— EMPTY —'}
+                <span className={`text-[10px] font-mono transition-opacity ${isTargetPot ? 'text-emerald-600 opacity-100 font-bold animate-pulse' : 'opacity-20'}`}>
+                  {isTargetPot ? `PLACE ${draggedTeam.name}` : '— EMPTY —'}
                 </span>
               )}
             </div>

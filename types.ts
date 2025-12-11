@@ -6,10 +6,11 @@ export enum Confederation {
   AFC = 'AFC',
   CONCACAF = 'CONCACAF',
   OFC = 'OFC',
-  FIFA = 'FIFA' // Used for multi-confederation play-off spots
+  FIFA = 'FIFA'
 }
 
 export type Theme = 'light' | 'dark' | 'system';
+export type AppView = 'draw' | 'knockouts';
 
 export interface Team {
   id: string;
@@ -18,13 +19,21 @@ export interface Team {
   rank: number;
   isHost?: boolean;
   pot: number;
-  flagCode: string; // ISO 2-letter code
+  flagCode: string;
 }
 
 export interface Group {
-  id: string; // A through L
+  id: string;
   name: string;
-  teams: Team[]; // Always max 4 teams, one from each pot
+  teams: Team[];
+}
+
+export interface Match {
+  id: string;
+  home: Team | null;
+  away: Team | null;
+  label: string; // e.g. "Match 49"
+  winnerId?: string;
 }
 
 export interface DrawState {
@@ -43,4 +52,5 @@ export interface SavedDraw {
   name: string;
   timestamp: number;
   state: DrawState;
+  isPreset?: boolean;
 }

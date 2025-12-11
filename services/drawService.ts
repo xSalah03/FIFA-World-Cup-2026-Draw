@@ -8,7 +8,10 @@ export const isValidPlacement = (team: Team, group: Group): boolean => {
   const currentTeams = group.teams;
   
   // Rule: One team per pot
-  if (currentTeams.some(t => t.pot === team.pot)) return false;
+  // If the team is already in the group (e.g. during a swap check), we ignore that specific team
+  const otherTeams = currentTeams.filter(t => t.id !== team.id);
+  
+  if (otherTeams.some(t => t.pot === team.pot)) return false;
 
   // Rule: FIFA Play-Off Neutrality
   if (team.confederation === Confederation.FIFA) return true;
@@ -23,7 +26,7 @@ export const isValidPlacement = (team: Team, group: Group): boolean => {
     [Confederation.FIFA]: 0,
   };
 
-  currentTeams.forEach((t) => {
+  otherTeams.forEach((t) => {
     confedCounts[t.confederation]++;
   });
 
@@ -36,6 +39,36 @@ export const isValidPlacement = (team: Team, group: Group): boolean => {
     // Same-Confederation Limit: Max 1 team
     return confedCounts[targetConfed] === 0;
   }
+};
+
+/**
+ * Validates if teamA (from groupA) and teamB (from groupB) can be swapped.
+ */
+export const isValidSwap = (teamA: Team, groupA: Group, teamB: Team, groupB: Group): boolean => {
+  // Must be same pot to maintain group structure
+  if (teamA.pot !== teamB.pot) return false;
+
+  // Host locking rules
+  if (teamA.isHost) {
+    if (teamA.id === 'MEX' && groupB.id !== 'A') return false;
+    if (teamA.id === 'CAN' && groupB.id !== 'B') return false;
+    if (teamA.id === 'USA' && groupB.id !== 'D') return false;
+  }
+  if (teamB.isHost) {
+    if (teamB.id === 'MEX' && groupA.id !== 'A') return false;
+    if (teamB.id === 'CAN' && groupA.id !== 'B') return false;
+    if (teamB.id === 'USA' && groupA.id !== 'D') return false;
+  }
+
+  // Check if teamA fits in groupB (without teamB)
+  const groupBWithoutB = { ...groupB, teams: groupB.teams.filter(t => t.id !== teamB.id) };
+  if (!isValidPlacement(teamA, groupBWithoutB)) return false;
+
+  // Check if teamB fits in groupA (without teamA)
+  const groupAWithoutA = { ...groupA, teams: groupA.teams.filter(t => t.id !== teamA.id) };
+  if (!isValidPlacement(teamB, groupAWithoutA)) return false;
+
+  return true;
 };
 
 /**
@@ -52,8 +85,6 @@ const canCompletePot = (
   const [currentTeam, ...nextTeams] = remainingTeams;
 
   for (let i = 0; i < groups.length; i++) {
-    // Skip groups that already have a team from this pot
-    // (either already in group.teams or assigned in this recursion)
     if (usedGroupIndices.has(i)) continue;
     
     const group = groups[i];
@@ -72,7 +103,6 @@ const canCompletePot = (
 
 /**
  * Finds a group index that is not only currently valid, but also "safe"
- * (doesn't lead to a deadlock for the rest of the pot).
  */
 export const findSafeGroupIndex = (
   team: Team,
@@ -81,27 +111,20 @@ export const findSafeGroupIndex = (
   groups: Group[]
 ): number => {
   const remainingTeamsInPot = allTeamsInPot.slice(currentTeamIndex + 1);
-  
-  // Shuffle search order to keep draws varied
   const groupIndices = shuffle([...Array(groups.length).keys()]);
 
   for (const idx of groupIndices) {
     const group = groups[idx];
     
     if (isValidPlacement(team, group)) {
-      // Create a set of group indices that are "occupied" for this pot
-      // 1. Groups that already have a team from this pot
       const occupied = new Set<number>();
       groups.forEach((g, i) => {
         if (g.teams.some(t => t.pot === team.pot)) {
           occupied.add(i);
         }
       });
-      
-      // 2. Add the group we are currently testing
       occupied.add(idx);
 
-      // Check if this choice leaves a valid path for the rest
       if (canCompletePot(remainingTeamsInPot, groups, occupied)) {
         return idx;
       }

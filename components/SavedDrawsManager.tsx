@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, FolderOpen, Trash2, Clock, Check } from 'lucide-react';
-import { DrawState, SavedDraw } from '../types';
+import { Save, FolderOpen, Trash2, Clock, Check, Star } from 'lucide-react';
+import { DrawState, SavedDraw, Team } from '../types';
+import { MOCK_TEAMS, GROUP_IDS } from '../constants';
 
 interface SavedDrawsManagerProps {
   currentState: DrawState;
@@ -9,6 +10,57 @@ interface SavedDrawsManagerProps {
 }
 
 const STORAGE_KEY = 'wc2026_saved_draws';
+
+/**
+ * Generates the specific draw state requested by the user
+ */
+const getOfficialPresetDraw = (): SavedDraw => {
+  const findTeam = (id: string) => MOCK_TEAMS.find(t => t.id === id)!;
+  
+  const mapping: Record<string, string[]> = {
+    'A': ['MEX', 'RSA', 'KOR', 'EPOD'],
+    'B': ['CAN', 'EPOA', 'QAT', 'SUI'],
+    'C': ['BRA', 'MAR', 'HAI', 'SCO'],
+    'D': ['USA', 'PAR', 'AUS', 'EPOC'],
+    'E': ['GER', 'CUW', 'CIV', 'ECU'],
+    'F': ['NED', 'JPN', 'EPOB', 'TUN'],
+    'G': ['BEL', 'EGY', 'IRN', 'NZL'],
+    'H': ['ESP', 'CPV', 'KSA', 'URU'],
+    'I': ['FRA', 'SEN', 'FPO2', 'NOR'],
+    'J': ['ARG', 'ALG', 'AUT', 'JOR'],
+    'K': ['POR', 'FPO1', 'UZB', 'COL'],
+    'L': ['ENG', 'CRO', 'GHA', 'PAN']
+  };
+
+  const groups = GROUP_IDS.map(id => ({
+    id,
+    name: id,
+    teams: (mapping[id] || []).map(findTeam)
+  }));
+
+  const history = groups.flatMap(g => g.teams.map(t => ({ team: t, groupId: g.id })));
+
+  return {
+    id: 'official-preset-2026',
+    name: 'Official 2026 Preview',
+    timestamp: 1718000000000, // Fixed historical date
+    state: {
+      pots: [
+        MOCK_TEAMS.filter(t => t.pot === 1),
+        MOCK_TEAMS.filter(t => t.pot === 2),
+        MOCK_TEAMS.filter(t => t.pot === 3),
+        MOCK_TEAMS.filter(t => t.pot === 4),
+      ],
+      groups,
+      currentPotIndex: 3,
+      currentTeamIndex: 11,
+      isDrawing: false,
+      history,
+      isComplete: true,
+    },
+    isPreset: true
+  };
+};
 
 export const SavedDrawsManager: React.FC<SavedDrawsManagerProps> = ({ currentState, onLoad }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,13 +70,22 @@ export const SavedDrawsManager: React.FC<SavedDrawsManagerProps> = ({ currentSta
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
+    let draws: SavedDraw[] = [];
     if (stored) {
       try {
-        setSavedDraws(JSON.parse(stored));
+        draws = JSON.parse(stored);
       } catch (e) {
         console.error("Failed to load saved draws", e);
       }
     }
+
+    // Always ensure the preset is at the top if it's not already in storage
+    const preset = getOfficialPresetDraw();
+    if (!draws.find(d => d.id === preset.id)) {
+      draws = [preset, ...draws];
+    }
+    
+    setSavedDraws(draws);
   }, []);
 
   const saveCurrentDraw = () => {
@@ -38,7 +99,7 @@ export const SavedDrawsManager: React.FC<SavedDrawsManagerProps> = ({ currentSta
 
     const updated = [newSave, ...savedDraws];
     setSavedDraws(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.filter(d => !d.isPreset)));
     setSaveName('');
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 2000);
@@ -48,7 +109,7 @@ export const SavedDrawsManager: React.FC<SavedDrawsManagerProps> = ({ currentSta
     e.stopPropagation();
     const updated = savedDraws.filter(s => s.id !== id);
     setSavedDraws(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.filter(d => !d.isPreset)));
   };
 
   const handleLoad = (save: SavedDraw) => {
@@ -112,24 +173,27 @@ export const SavedDrawsManager: React.FC<SavedDrawsManagerProps> = ({ currentSta
                     <div
                       key={save.id}
                       onClick={() => handleLoad(save)}
-                      className="group p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all flex items-center justify-between"
+                      className={`group p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all flex items-center justify-between ${save.isPreset ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}
                     >
                       <div className="flex-1 min-w-0 pr-4">
-                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 flex items-center gap-2">
+                          {save.isPreset && <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0" />}
                           {save.name}
                         </div>
                         <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
                           <Clock size={10} />
-                          {new Date(save.timestamp).toLocaleDateString()} · {save.state.isComplete ? 'Final' : `Pot ${save.state.currentPotIndex + 1}`}
+                          {save.isPreset ? 'Recommended Preset' : `${new Date(save.timestamp).toLocaleDateString()} · ${save.state.isComplete ? 'Final' : `Pot ${save.state.currentPotIndex + 1}`}`}
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => deleteSave(save.id, e)}
-                        className="p-1.5 text-slate-300 hover:text-red-500 dark:text-slate-700 dark:hover:text-red-400 transition-colors"
-                        title="Delete Save"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {!save.isPreset && (
+                        <button
+                          onClick={(e) => deleteSave(save.id, e)}
+                          className="p-1.5 text-slate-300 hover:text-red-500 dark:text-slate-700 dark:hover:text-red-400 transition-colors"
+                          title="Delete Save"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
