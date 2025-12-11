@@ -9,7 +9,7 @@ import { Group, Team, Confederation } from '../types';
 export const isValidPlacement = (team: Team, group: Group): boolean => {
   const currentTeams = group.teams;
   
-  // If group is already full (4 teams max in 48-team format for 12 groups)
+  // If group is already full
   if (currentTeams.length >= 4) return false;
 
   const confedCounts: Record<Confederation, number> = {
@@ -38,9 +38,23 @@ export const isValidPlacement = (team: Team, group: Group): boolean => {
 
 /**
  * Finds the first valid group index for a team.
- * Groups are checked sequentially from A to L.
+ * Groups are checked sequentially from A to L, but with a quadrant bias for Pot 1 seeds.
  */
 export const findFirstValidGroupIndex = (team: Team, groups: Group[]): number => {
+  // Competitive Balance: Protect quadrants for top seeds in Pot 1
+  // Top 4 non-host seeds (Rank 1-4: ARG, FRA, ESP, ENG)
+  if (team.pot === 1 && !team.isHost && team.rank <= 4) {
+    const preferredGroups: number[] = [];
+    if (team.id === 'ARG') preferredGroups.push(4, 5, 6); // Quadrant 2 (E, F, G)
+    if (team.id === 'FRA') preferredGroups.push(7, 8);    // Quadrant 3 (H, I)
+    if (team.id === 'ESP') preferredGroups.push(9, 10);   // Quadrant 4 (J, K)
+    if (team.id === 'ENG') preferredGroups.push(11);      // Quadrant 4 (L)
+    
+    for (const idx of preferredGroups) {
+      if (isValidPlacement(team, groups[idx])) return idx;
+    }
+  }
+
   for (let i = 0; i < groups.length; i++) {
     if (isValidPlacement(team, groups[i])) {
       return i;

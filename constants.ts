@@ -12,9 +12,9 @@ export const CONFEDERATION_LABELS: Record<Confederation, string> = {
 
 export const MOCK_TEAMS: Team[] = [
   // Pot 1 (Hosts + Top Seeds)
-  { id: 'USA', name: 'USA', confederation: Confederation.CONCACAF, rank: 11, isHost: true, pot: 1, flag: '🇺🇸' },
   { id: 'MEX', name: 'Mexico', confederation: Confederation.CONCACAF, rank: 15, isHost: true, pot: 1, flag: '🇲🇽' },
   { id: 'CAN', name: 'Canada', confederation: Confederation.CONCACAF, rank: 40, isHost: true, pot: 1, flag: '🇨🇦' },
+  { id: 'USA', name: 'USA', confederation: Confederation.CONCACAF, rank: 11, isHost: true, pot: 1, flag: '🇺🇸' },
   { id: 'ARG', name: 'Argentina', confederation: Confederation.CONMEBOL, rank: 1, pot: 1, flag: '🇦🇷' },
   { id: 'FRA', name: 'France', confederation: Confederation.UEFA, rank: 2, pot: 1, flag: '🇫🇷' },
   { id: 'ESP', name: 'Spain', confederation: Confederation.UEFA, rank: 3, pot: 1, flag: '🇪🇸' },
@@ -42,23 +42,21 @@ export const MOCK_TEAMS: Team[] = [
   // Pot 3
   { id: 'AUT', name: 'Austria', confederation: Confederation.UEFA, rank: 26, pot: 3, flag: '🇦🇹' },
   { id: 'ECU', name: 'Ecuador', confederation: Confederation.CONMEBOL, rank: 27, pot: 3, flag: '🇪🇨' },
-  { id: 'SWE', name: 'Sweden', confederation: Confederation.UEFA, rank: 28, pot: 3, flag: '🇸🇪' },
   { id: 'POL', name: 'Poland', confederation: Confederation.UEFA, rank: 29, pot: 3, flag: '🇵🇱' },
-  { id: 'WAL', name: 'Wales', confederation: Confederation.UEFA, rank: 30, pot: 3, flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
   { id: 'HUN', name: 'Hungary', confederation: Confederation.UEFA, rank: 31, pot: 3, flag: '🇭🇺' },
   { id: 'SRB', name: 'Serbia', confederation: Confederation.UEFA, rank: 32, pot: 3, flag: '🇷🇸' },
   { id: 'TUR', name: 'Turkey', confederation: Confederation.UEFA, rank: 35, pot: 3, flag: '🇹🇷' },
   { id: 'TUN', name: 'Tunisia', confederation: Confederation.CAF, rank: 36, pot: 3, flag: '🇹🇳' },
   { id: 'ALG', name: 'Algeria', confederation: Confederation.CAF, rank: 37, pot: 3, flag: '🇩🇿' },
-  { id: 'CHI', name: 'Chile', confederation: Confederation.CONMEBOL, rank: 38, pot: 3, flag: '🇨🇱' },
   { id: 'NGA', name: 'Nigeria', confederation: Confederation.CAF, rank: 39, pot: 3, flag: '🇳🇬' },
+  { id: 'EGY', name: 'Egypt', confederation: Confederation.CAF, rank: 33, pot: 3, flag: '🇪🇬' },
+  { id: 'QAT', name: 'Qatar', confederation: Confederation.AFC, rank: 34, pot: 3, flag: '🇶🇦' },
+  { id: 'PAN', name: 'Panama', confederation: Confederation.CONCACAF, rank: 41, pot: 3, flag: '🇵🇦' },
 
   // Pot 4
   { id: 'KSA', name: 'Saudi Arabia', confederation: Confederation.AFC, rank: 56, pot: 4, flag: '🇸🇦' },
   { id: 'CMR', name: 'Cameroon', confederation: Confederation.CAF, rank: 49, pot: 4, flag: '🇨🇲' },
   { id: 'MLI', name: 'Mali', confederation: Confederation.CAF, rank: 44, pot: 4, flag: '🇲🇱' },
-  { id: 'EGY', name: 'Egypt', confederation: Confederation.CAF, rank: 33, pot: 4, flag: '🇪🇬' },
-  { id: 'PAN', name: 'Panama', confederation: Confederation.CONCACAF, rank: 41, pot: 4, flag: '🇵🇦' },
   { id: 'CRC', name: 'Costa Rica', confederation: Confederation.CONCACAF, rank: 45, pot: 4, flag: '🇨🇷' },
   { id: 'JAM', name: 'Jamaica', confederation: Confederation.CONCACAF, rank: 50, pot: 4, flag: '🇯🇲' },
   { id: 'IRQ', name: 'Iraq', confederation: Confederation.AFC, rank: 58, pot: 4, flag: '🇮🇶' },
@@ -66,6 +64,8 @@ export const MOCK_TEAMS: Team[] = [
   { id: 'PAR', name: 'Paraguay', confederation: Confederation.CONMEBOL, rank: 62, pot: 4, flag: '🇵🇾' },
   { id: 'NZL', name: 'New Zealand', confederation: Confederation.OFC, rank: 94, pot: 4, flag: '🇳🇿' },
   { id: 'RSA', name: 'South Africa', confederation: Confederation.CAF, rank: 59, pot: 4, flag: '🇿🇦' },
+  { id: 'UAE', name: 'UAE', confederation: Confederation.AFC, rank: 68, pot: 4, flag: '🇦🇪' },
+  { id: 'SOL', name: 'Solomon Islands', confederation: Confederation.OFC, rank: 130, pot: 4, flag: '🇸🇧' },
 ];
 
 export const GROUP_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
