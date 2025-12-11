@@ -8,6 +8,8 @@ export enum Confederation {
   OFC = 'OFC'
 }
 
+export type Theme = 'light' | 'dark' | 'system';
+
 export interface Team {
   id: string;
   name: string;

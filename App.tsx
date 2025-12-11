@@ -1,11 +1,12 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { MOCK_TEAMS, GROUP_IDS } from './constants';
-import { DrawState, Group, Team } from './types';
+import { DrawState, Group, Team, Theme } from './types';
 import { findFirstValidGroupIndex, shuffle, isValidPlacement } from './services/drawService';
 import PotList from './components/PotList';
 import GroupCard from './components/GroupCard';
 import Controls from './components/Controls';
+import { ThemeToggle } from './components/ThemeToggle';
 import { Trophy, Globe } from 'lucide-react';
 
 const INITIAL_STATE: DrawState = {
@@ -25,7 +26,32 @@ const INITIAL_STATE: DrawState = {
 
 const App: React.FC = () => {
   const [state, setState] = useState<DrawState>(INITIAL_STATE);
+  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'system');
   const autoDrawInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Theme effect
+  useEffect(() => {
+    const root = window.document.documentElement;
+    localStorage.setItem('theme', theme);
+
+    const applyTheme = () => {
+      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (isDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = () => applyTheme();
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [theme]);
 
   useEffect(() => {
     resetDraw();
@@ -38,7 +64,6 @@ const App: React.FC = () => {
     const hosts = pot1.filter(t => t.isHost);
     const nonHostsPot1 = shuffle(pot1.filter(t => !t.isHost));
     
-    // Hosting logic: Mexico (A), Canada (B), USA (D)
     const sortedHosts = [...hosts].sort((a, b) => {
       const order = { 'MEX': 0, 'CAN': 1, 'USA': 2 };
       return (order[a.id as keyof typeof order] ?? 99) - (order[b.id as keyof typeof order] ?? 99);
@@ -129,14 +154,12 @@ const App: React.FC = () => {
 
       if (!movingTeam) return prev;
 
-      // Host Locks
       if (movingTeam.isHost) {
         if (movingTeam.id === 'MEX' && toGroupId !== 'A') return { ...prev, error: "Mexico is locked to Group A" };
         if (movingTeam.id === 'CAN' && toGroupId !== 'B') return { ...prev, error: "Canada is locked to Group B" };
         if (movingTeam.id === 'USA' && toGroupId !== 'D') return { ...prev, error: "USA is locked to Group D" };
       }
 
-      // Pot Constraint: Can only drop into group if pot slot is empty
       if (targetGroup.teams.some(t => t.pot === movingTeam!.pot)) {
         return { ...prev, error: `Group ${toGroupId} already has a team from Pot ${movingTeam.pot}.` };
       }
@@ -151,7 +174,6 @@ const App: React.FC = () => {
         return g;
       });
 
-      // Update counters if moved from a pot
       let nextPotIdx = prev.currentPotIndex;
       let nextTeamIdx = prev.currentTeamIndex;
       let isComplete = prev.isComplete;
@@ -190,46 +212,36 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950">
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-6 sticky top-0 z-30 shadow-2xl">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-6 sticky top-0 z-30 shadow-sm dark:shadow-2xl">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20">
               <Trophy className="text-white" size={32} />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase italic">
-                FIFA World Cup 2026<span className="text-indigo-500 ml-1">Draw</span>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">
+                FIFA World Cup 2026<span className="text-indigo-600 dark:text-indigo-500 ml-1">Draw</span>
               </h1>
-              <div className="flex items-center gap-2 text-slate-400 text-xs sm:text-sm font-medium">
-                <Globe size={14} className="text-indigo-400" />
+              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">
+                <Globe size={14} className="text-indigo-500 dark:text-indigo-400" />
                 <span>OFFICIAL SIMULATOR · 48 TEAMS</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-             <div className="hidden lg:flex items-center gap-6 mr-4">
-                <div className="text-right">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Mexico City</div>
-                  <div className="text-xs font-bold text-slate-300">Group A</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Toronto</div>
-                  <div className="text-xs font-bold text-slate-300">Group B</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Los Angeles</div>
-                  <div className="text-xs font-bold text-slate-300">Group D</div>
-                </div>
-             </div>
-             <div className="h-10 w-px bg-slate-800 hidden lg:block"></div>
-             <div className="flex -space-x-3">
-               {['mx', 'ca', 'us'].map((code, i) => (
-                 <div key={i} className="w-10 h-10 rounded-full bg-slate-800 border-4 border-slate-900 overflow-hidden shadow-xl">
-                   <img src={`https://flagcdn.com/w80/${code}.png`} className="w-full h-full object-cover" />
-                 </div>
-               ))}
-             </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex items-center gap-6">
+              <div className="hidden lg:flex items-center gap-4 mr-4">
+                  {['mx', 'ca', 'us'].map((code, i) => (
+                    <div key={i} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-white dark:border-slate-900 overflow-hidden shadow-md">
+                      <img src={`https://flagcdn.com/w80/${code}.png`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+              </div>
+              <div className="h-10 w-px bg-slate-200 dark:bg-slate-800 hidden lg:block"></div>
+              <ThemeToggle theme={theme} setTheme={setTheme} />
+            </div>
           </div>
         </div>
       </header>
@@ -237,9 +249,9 @@ const App: React.FC = () => {
       <main className="flex-1 p-4 sm:p-8 max-w-[1600px] mx-auto w-full space-y-12">
         <section>
           <div className="flex items-center gap-4 mb-6">
-            <div className="h-px bg-slate-800 flex-1"></div>
-            <h2 className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">World Ranking Distribution</h2>
-            <div className="h-px bg-slate-800 flex-1"></div>
+            <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
+            <h2 className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">World Ranking Distribution</h2>
+            <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {state.pots.map((pot, idx) => (
@@ -257,13 +269,13 @@ const App: React.FC = () => {
 
         <section>
           <div className="flex items-center gap-4 mb-8">
-            <div className="h-px bg-slate-800 flex-1"></div>
-            <h2 className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">Tournament Brackets (A-L)</h2>
-            <div className="h-px bg-slate-800 flex-1"></div>
+            <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
+            <h2 className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">Tournament Brackets (A-L)</h2>
+            <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
           </div>
 
           {state.error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-8 flex items-center justify-between gap-3 text-sm font-semibold animate-in zoom-in-95">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 p-4 rounded-xl mb-8 flex items-center justify-between gap-3 text-sm font-semibold animate-in zoom-in-95">
               <div className="flex items-center gap-3">
                 <span className="text-lg">⚠️</span>
                 {state.error}
@@ -280,29 +292,29 @@ const App: React.FC = () => {
         </section>
 
         {!state.isDrawing && !state.isComplete && (
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-8 max-w-4xl mx-auto flex flex-col md:flex-row gap-8 items-center">
+          <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-4xl mx-auto flex flex-col md:flex-row gap-8 items-center shadow-sm">
             <div className="text-center md:text-left flex-1">
-              <h4 className="font-black text-indigo-400 mb-2 uppercase tracking-widest flex items-center gap-2 justify-center md:justify-start">
-                <Globe size={20} className="text-indigo-500" />
+              <h4 className="font-black text-indigo-600 dark:text-indigo-400 mb-2 uppercase tracking-widest flex items-center gap-2 justify-center md:justify-start">
+                <Globe size={20} className="text-indigo-600 dark:text-indigo-500" />
                 FIFA Draw Protocols
               </h4>
-              <p className="text-slate-400 text-sm leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
                 The 48-team expansion introduces 12 groups. 
                 Our logic strictly enforces <b>1 team per pot</b> per group, 
                 <b>max 2 UEFA teams</b> per group, and <b>no same-confederation</b> matchups for non-European teams.
               </p>
             </div>
             <div className="flex gap-4">
-              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center w-24">
-                <div className="text-indigo-400 font-bold text-xl">16</div>
+              <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-center w-24">
+                <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xl">16</div>
                 <div className="text-[9px] text-slate-500 font-bold uppercase">UEFA</div>
               </div>
-              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center w-24">
-                <div className="text-indigo-400 font-bold text-xl">4</div>
+              <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-center w-24">
+                <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xl">4</div>
                 <div className="text-[9px] text-slate-500 font-bold uppercase">Pots</div>
               </div>
-              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center w-24">
-                <div className="text-indigo-400 font-bold text-xl">12</div>
+              <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-center w-24">
+                <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xl">12</div>
                 <div className="text-[9px] text-slate-500 font-bold uppercase">Groups</div>
               </div>
             </div>
