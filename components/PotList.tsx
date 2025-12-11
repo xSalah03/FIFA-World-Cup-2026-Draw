@@ -9,15 +9,18 @@ interface PotListProps {
   drawnCount: number;
   currentPotIndex: number;
   activeTeamIndex: number;
+  onDragStart: (team: Team) => void;
+  onDragEnd: () => void;
 }
 
-const PotList: React.FC<PotListProps> = ({ potNumber, teams, drawnCount, currentPotIndex, activeTeamIndex }) => {
+const PotList: React.FC<PotListProps> = ({ potNumber, teams, drawnCount, currentPotIndex, activeTeamIndex, onDragStart, onDragEnd }) => {
   const isCurrentPot = currentPotIndex === potNumber - 1;
 
   const handleDragStart = (e: React.DragEvent, team: Team) => {
     e.dataTransfer.setData('teamId', team.id);
     e.dataTransfer.setData('fromGroupId', '');
     e.dataTransfer.effectAllowed = 'move';
+    onDragStart(team);
   };
 
   return (
@@ -36,6 +39,7 @@ const PotList: React.FC<PotListProps> = ({ potNumber, teams, drawnCount, current
               key={team.id} 
               draggable={isActive}
               onDragStart={(e) => handleDragStart(e, team)}
+              onDragEnd={onDragEnd}
               className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md mb-1 transition-all ${
                 isDrawn 
                   ? 'opacity-30 bg-slate-50 dark:bg-slate-950/50 grayscale line-through' 

@@ -27,6 +27,7 @@ const INITIAL_STATE: DrawState = {
 const App: React.FC = () => {
   const [state, setState] = useState<DrawState>(INITIAL_STATE);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'system');
+  const [draggedTeam, setDraggedTeam] = useState<Team | null>(null);
   const autoDrawInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -91,13 +92,11 @@ const App: React.FC = () => {
 
       let groupIdx = -1;
       
-      // Handle Host specific placements
       if (team.isHost) {
         if (team.id === 'MEX') groupIdx = 0; 
         if (team.id === 'CAN') groupIdx = 1; 
         if (team.id === 'USA') groupIdx = 3; 
       } else {
-        // PROACTIVE DEADLOCK PREVENTION: findSafeGroupIndex ensures the rest of the pot can still fit
         groupIdx = findSafeGroupIndex(team, currentPot, currentTeamIndex, groups);
       }
 
@@ -157,32 +156,18 @@ const App: React.FC = () => {
 
       if (!movingTeam) return prev;
 
-      // Logic for Host Locks
       if (movingTeam.isHost) {
         if (movingTeam.id === 'MEX' && toGroupId !== 'A') return { ...prev, error: "Mexico is locked to Group A" };
         if (movingTeam.id === 'CAN' && toGroupId !== 'B') return { ...prev, error: "Canada is locked to Group B" };
         if (movingTeam.id === 'USA' && toGroupId !== 'D') return { ...prev, error: "USA is locked to Group D" };
       }
 
-      // Check if Slot is Occupied
       if (targetGroup.teams.some(t => t.pot === movingTeam!.pot)) {
         return { ...prev, error: `Group ${toGroupId} already has a team from Pot ${movingTeam.pot}.` };
       }
 
-      // Basic Rule Validation
       if (!isValidPlacement(movingTeam, targetGroup)) {
         return { ...prev, error: `Placement invalid: Same-confederation or UEFA limits violated.` };
-      }
-
-      // For manual moves from a pot, we check safety too
-      if (!fromGroupId) {
-        const currentPot = prev.pots[prev.currentPotIndex];
-        const safeIdx = findSafeGroupIndex(movingTeam, currentPot, prev.currentTeamIndex, prev.groups);
-        
-        // If the user drops it into a group that isn't the 'safeIdx', it's still okay 
-        // IF that group doesn't lead to a deadlock. SafeIdx is just one possible path.
-        // Let's perform a direct safety check for this specific move.
-        // (Simplified for UX: if basic rules pass, we allow it, but warn on auto-draw failure)
       }
 
       let newGroups = prev.groups.map(g => {
@@ -279,6 +264,8 @@ const App: React.FC = () => {
                 drawnCount={state.currentPotIndex > idx ? pot.length : (state.currentPotIndex === idx ? state.currentTeamIndex : 0)} 
                 currentPotIndex={state.currentPotIndex}
                 activeTeamIndex={state.currentPotIndex === idx ? state.currentTeamIndex : -1}
+                onDragStart={setDraggedTeam}
+                onDragEnd={() => setDraggedTeam(null)}
               />
             ))}
           </div>
@@ -303,7 +290,14 @@ const App: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {state.groups.map((group) => (
-              <GroupCard key={group.id} group={group} onMoveTeam={moveTeam} />
+              <GroupCard 
+                key={group.id} 
+                group={group} 
+                onMoveTeam={moveTeam} 
+                draggedTeam={draggedTeam}
+                onDragStart={setDraggedTeam}
+                onDragEnd={() => setDraggedTeam(null)}
+              />
             ))}
           </div>
         </section>
