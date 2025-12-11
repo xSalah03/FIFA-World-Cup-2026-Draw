@@ -7,6 +7,7 @@ import PotList from './components/PotList';
 import GroupCard from './components/GroupCard';
 import Controls from './components/Controls';
 import { ThemeToggle } from './components/ThemeToggle';
+import { SavedDrawsManager } from './components/SavedDrawsManager';
 import { Trophy, Globe } from 'lucide-react';
 
 const INITIAL_STATE: DrawState = {
@@ -139,6 +140,53 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const undoLastMove = useCallback(() => {
+    setState(prev => {
+      if (prev.history.length === 0) return prev;
+
+      if (autoDrawInterval.current) {
+        clearInterval(autoDrawInterval.current);
+      }
+
+      const lastMove = prev.history[prev.history.length - 1];
+      const { team, groupId } = lastMove;
+
+      const newGroups = prev.groups.map(g => {
+        if (g.id === groupId) {
+          return { ...g, teams: g.teams.filter(t => t.id !== team.id) };
+        }
+        return g;
+      });
+
+      let nextTeamIdx = prev.currentTeamIndex - 1;
+      let nextPotIdx = prev.currentPotIndex;
+
+      if (prev.isComplete) {
+        nextPotIdx = 3;
+        nextTeamIdx = prev.pots[3].length - 1;
+      } else if (nextTeamIdx < 0) {
+        if (nextPotIdx > 0) {
+          nextPotIdx--;
+          nextTeamIdx = prev.pots[nextPotIdx].length - 1;
+        } else {
+          nextTeamIdx = 0;
+          nextPotIdx = 0;
+        }
+      }
+
+      return {
+        ...prev,
+        groups: newGroups,
+        currentPotIndex: nextPotIdx,
+        currentTeamIndex: nextTeamIdx,
+        history: prev.history.slice(0, -1),
+        isComplete: false,
+        isDrawing: false,
+        error: undefined
+      };
+    });
+  }, []);
+
   const moveTeam = (teamId: string, fromGroupId: string | null, toGroupId: string) => {
     setState(prev => {
       const targetGroup = prev.groups.find(g => g.id === toGroupId);
@@ -188,7 +236,15 @@ const App: React.FC = () => {
         }
       }
 
-      return { ...prev, groups: newGroups, currentPotIndex: nextPotIdx, currentTeamIndex: nextTeamIdx, isComplete, error: undefined };
+      return { 
+        ...prev, 
+        groups: newGroups, 
+        currentPotIndex: nextPotIdx, 
+        currentTeamIndex: nextTeamIdx, 
+        isComplete, 
+        error: undefined,
+        history: [...prev.history, { team: movingTeam!, groupId: toGroupId }]
+      };
     });
   };
 
@@ -198,6 +254,11 @@ const App: React.FC = () => {
     autoDrawInterval.current = setInterval(() => {
       drawNextTeam();
     }, 400);
+  };
+
+  const handleLoadState = (newState: DrawState) => {
+    if (autoDrawInterval.current) clearInterval(autoDrawInterval.current);
+    setState(newState);
   };
 
   const exportCSV = () => {
@@ -232,18 +293,10 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <div className="flex items-center gap-6">
-              <div className="hidden lg:flex items-center gap-4 mr-4">
-                  {['mx', 'ca', 'us'].map((code, i) => (
-                    <div key={i} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-white dark:border-slate-900 overflow-hidden shadow-md">
-                      <img src={`https://flagcdn.com/w80/${code}.png`} className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-              </div>
-              <div className="h-10 w-px bg-slate-200 dark:bg-slate-800 hidden lg:block"></div>
-              <ThemeToggle theme={theme} setTheme={setTheme} />
-            </div>
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <SavedDrawsManager currentState={state} onLoad={handleLoadState} />
+            <div className="h-10 w-px bg-slate-200 dark:bg-slate-800 hidden lg:block"></div>
+            <ThemeToggle theme={theme} setTheme={setTheme} />
           </div>
         </div>
       </header>
@@ -335,11 +388,13 @@ const App: React.FC = () => {
       <Controls 
         onStart={handleStartAutoDraw}
         onNext={drawNextTeam}
+        onUndo={undoLastMove}
         onReset={resetDraw}
         onExport={exportCSV}
         isDrawing={state.isDrawing}
         isComplete={state.isComplete}
         canNext={!state.isComplete && !state.error}
+        canUndo={state.history.length > 0}
       />
     </div>
   );

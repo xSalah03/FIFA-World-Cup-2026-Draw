@@ -37,3 +37,10 @@ export interface DrawState {
   isComplete: boolean;
   error?: string;
 }
+
+export interface SavedDraw {
+  id: string;
+  name: string;
+  timestamp: number;
+  state: DrawState;
+}
