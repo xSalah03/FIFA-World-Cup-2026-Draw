@@ -1,0 +1,5 @@
+{
+  "name": "World Cup 2026 Draw Simulator",
+  "description": "A professional-grade simulation tool for the 48-team FIFA World Cup 2026 draw, featuring real-time constraint validation, pot-based logic, and host pre-assignment.",
+  "requestFramePermissions": []
+}
