@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Team } from '../types';
+import { TeamIcon } from './TeamIcon';
 
 interface PotListProps {
   potNumber: number;
@@ -15,7 +16,7 @@ const PotList: React.FC<PotListProps> = ({ potNumber, teams, drawnCount, current
 
   const handleDragStart = (e: React.DragEvent, team: Team) => {
     e.dataTransfer.setData('teamId', team.id);
-    e.dataTransfer.setData('fromGroupId', ''); // Empty means it's from a pot
+    e.dataTransfer.setData('fromGroupId', '');
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -43,7 +44,7 @@ const PotList: React.FC<PotListProps> = ({ potNumber, teams, drawnCount, current
                     : 'bg-slate-800/40 hover:bg-slate-700/60'
               }`}
             >
-              <span className="text-lg">{team.flag}</span>
+              <TeamIcon code={team.flagCode} name={team.name} />
               <span className="font-medium flex-1 truncate">{team.name}</span>
               <span className="text-[10px] text-slate-500 font-mono">{team.confederation}</span>
               {isActive && <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>}

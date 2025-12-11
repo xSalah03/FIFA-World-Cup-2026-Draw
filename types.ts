@@ -15,13 +15,13 @@ export interface Team {
   rank: number;
   isHost?: boolean;
   pot: number;
-  flag: string;
+  flagCode: string; // ISO 2-letter code
 }
 
 export interface Group {
   id: string; // A through L
   name: string;
-  teams: Team[];
+  teams: Team[]; // Always max 4 teams, one from each pot
 }
 
 export interface DrawState {

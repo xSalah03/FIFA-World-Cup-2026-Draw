@@ -38,7 +38,7 @@ const App: React.FC = () => {
     const hosts = pot1.filter(t => t.isHost);
     const nonHostsPot1 = shuffle(pot1.filter(t => !t.isHost));
     
-    // Sort hosts specifically to handle drawing them in order for A, B, D assignment
+    // Hosting logic: Mexico (A), Canada (B), USA (D)
     const sortedHosts = [...hosts].sort((a, b) => {
       const order = { 'MEX': 0, 'CAN': 1, 'USA': 2 };
       return (order[a.id as keyof typeof order] ?? 99) - (order[b.id as keyof typeof order] ?? 99);
@@ -67,10 +67,9 @@ const App: React.FC = () => {
 
       let groupIdx = -1;
       if (team.isHost) {
-        // Explicit Requested Host Mapping: Mexico (A), Canada (B), USA (D)
-        if (team.id === 'MEX') groupIdx = 0; // Group A
-        if (team.id === 'CAN') groupIdx = 1; // Group B
-        if (team.id === 'USA') groupIdx = 3; // Group D
+        if (team.id === 'MEX') groupIdx = 0; 
+        if (team.id === 'CAN') groupIdx = 1; 
+        if (team.id === 'USA') groupIdx = 3; 
       } else {
         groupIdx = findFirstValidGroupIndex(team, groups);
       }
@@ -79,7 +78,7 @@ const App: React.FC = () => {
         return {
           ...prev,
           isDrawing: false,
-          error: `Deadlock: Cannot place ${team.name} anywhere due to continental constraints. Try resetting.`,
+          error: `Deadlock: Cannot place ${team.name} in any group's Pot ${currentPotIndex + 1} slot.`,
         };
       }
 
@@ -125,35 +124,34 @@ const App: React.FC = () => {
         movingTeam = sourceGroup?.teams.find(t => t.id === teamId);
       } else {
         const currentPot = prev.pots[prev.currentPotIndex];
-        const teamInPot = currentPot[prev.currentTeamIndex];
-        if (teamInPot.id === teamId) {
-          movingTeam = teamInPot;
-        }
+        movingTeam = currentPot.find(t => t.id === teamId);
       }
 
       if (!movingTeam) return prev;
 
-      // Enforce host locked positions
+      // Host Locks
       if (movingTeam.isHost) {
-        if (movingTeam.id === 'MEX' && toGroupId !== 'A') return { ...prev, error: "Mexico must stay in Group A" };
-        if (movingTeam.id === 'CAN' && toGroupId !== 'B') return { ...prev, error: "Canada must stay in Group B" };
-        if (movingTeam.id === 'USA' && toGroupId !== 'D') return { ...prev, error: "USA must stay in Group D" };
+        if (movingTeam.id === 'MEX' && toGroupId !== 'A') return { ...prev, error: "Mexico is locked to Group A" };
+        if (movingTeam.id === 'CAN' && toGroupId !== 'B') return { ...prev, error: "Canada is locked to Group B" };
+        if (movingTeam.id === 'USA' && toGroupId !== 'D') return { ...prev, error: "USA is locked to Group D" };
       }
 
-      const tempGroup = { ...targetGroup, teams: targetGroup.teams.filter(t => t.id !== teamId) };
-      if (!isValidPlacement(movingTeam, tempGroup)) {
-        return { ...prev, error: `Invalid move for ${movingTeam.name}: Confederation rules violated.` };
+      // Pot Constraint: Can only drop into group if pot slot is empty
+      if (targetGroup.teams.some(t => t.pot === movingTeam!.pot)) {
+        return { ...prev, error: `Group ${toGroupId} already has a team from Pot ${movingTeam.pot}.` };
+      }
+
+      if (!isValidPlacement(movingTeam, targetGroup)) {
+        return { ...prev, error: `Placement invalid: Confederation rules violated.` };
       }
 
       let newGroups = prev.groups.map(g => {
         if (g.id === fromGroupId) return { ...g, teams: g.teams.filter(t => t.id !== teamId) };
-        if (g.id === toGroupId) {
-          if (g.teams.find(t => t.id === teamId)) return g;
-          return { ...g, teams: [...g.teams, movingTeam!] };
-        }
+        if (g.id === toGroupId) return { ...g, teams: [...g.teams, movingTeam!] };
         return g;
       });
 
+      // Update counters if moved from a pot
       let nextPotIdx = prev.currentPotIndex;
       let nextTeamIdx = prev.currentTeamIndex;
       let isComplete = prev.isComplete;
@@ -179,13 +177,13 @@ const App: React.FC = () => {
   };
 
   const exportCSV = () => {
-    const headers = ['Group', 'Slot', 'Team', 'Confederation', 'Rank'];
-    const rows = state.groups.flatMap(g => g.teams.map((t, i) => [g.name, i + 1, t.name, t.confederation, t.rank]));
+    const headers = ['Group', 'Pot', 'Team', 'Confederation', 'Rank'];
+    const rows = state.groups.flatMap(g => g.teams.sort((a,b)=>a.pot-b.pot).map(t => [g.name, t.pot, t.name, t.confederation, t.rank]));
     let csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "world_cup_2026_draw.csv");
+    link.setAttribute("download", "fifa_2026_draw_results.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -205,19 +203,33 @@ const App: React.FC = () => {
               </h1>
               <div className="flex items-center gap-2 text-slate-400 text-xs sm:text-sm font-medium">
                 <Globe size={14} className="text-indigo-400" />
-                <span>MEXICO · CANADA · USA</span>
+                <span>OFFICIAL SIMULATOR · 48 TEAMS</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700">
-            <div className="flex -space-x-2">
-              {['🇲🇽', '🇨🇦', '🇺🇸'].map((flag, i) => (
-                <div key={i} className="w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-lg">
-                  {flag}
+          <div className="flex items-center gap-6">
+             <div className="hidden lg:flex items-center gap-6 mr-4">
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Mexico City</div>
+                  <div className="text-xs font-bold text-slate-300">Group A</div>
                 </div>
-              ))}
-            </div>
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Host Assignments Locked</span>
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Toronto</div>
+                  <div className="text-xs font-bold text-slate-300">Group B</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Los Angeles</div>
+                  <div className="text-xs font-bold text-slate-300">Group D</div>
+                </div>
+             </div>
+             <div className="h-10 w-px bg-slate-800 hidden lg:block"></div>
+             <div className="flex -space-x-3">
+               {['mx', 'ca', 'us'].map((code, i) => (
+                 <div key={i} className="w-10 h-10 rounded-full bg-slate-800 border-4 border-slate-900 overflow-hidden shadow-xl">
+                   <img src={`https://flagcdn.com/w80/${code}.png`} className="w-full h-full object-cover" />
+                 </div>
+               ))}
+             </div>
           </div>
         </div>
       </header>
@@ -226,7 +238,7 @@ const App: React.FC = () => {
         <section>
           <div className="flex items-center gap-4 mb-6">
             <div className="h-px bg-slate-800 flex-1"></div>
-            <h2 className="text-slate-400 font-bold uppercase tracking-widest text-sm">Official Qualifying Pots</h2>
+            <h2 className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">World Ranking Distribution</h2>
             <div className="h-px bg-slate-800 flex-1"></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -246,15 +258,17 @@ const App: React.FC = () => {
         <section>
           <div className="flex items-center gap-4 mb-8">
             <div className="h-px bg-slate-800 flex-1"></div>
-            <h2 className="text-slate-400 font-bold uppercase tracking-widest text-sm">Final Group Brackets (48 Teams)</h2>
+            <h2 className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">Tournament Brackets (A-L)</h2>
             <div className="h-px bg-slate-800 flex-1"></div>
           </div>
 
           {state.error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-8 flex items-center justify-center gap-3 text-sm font-semibold animate-in zoom-in-95">
-              <span>⚠️</span>
-              {state.error}
-              <button onClick={() => setState(s => ({ ...s, error: undefined }))} className="ml-4 underline opacity-70 hover:opacity-100 font-bold">DISMISS</button>
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-8 flex items-center justify-between gap-3 text-sm font-semibold animate-in zoom-in-95">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">⚠️</span>
+                {state.error}
+              </div>
+              <button onClick={() => setState(s => ({ ...s, error: undefined }))} className="px-3 py-1 bg-red-500/20 rounded hover:bg-red-500/40 transition-colors uppercase text-[10px]">Close</button>
             </div>
           )}
 
@@ -266,15 +280,32 @@ const App: React.FC = () => {
         </section>
 
         {!state.isDrawing && !state.isComplete && (
-          <div className="bg-indigo-950/20 border border-indigo-900/30 rounded-2xl p-6 text-slate-400 text-sm max-w-3xl mx-auto text-center">
-            <h4 className="font-bold text-indigo-400 mb-2 flex items-center justify-center gap-2">
-              <Globe size={18} />
-              FIFA Regulation Mode
-            </h4>
-            <p className="opacity-80">
-              Host seeding: <b>Mexico (A1)</b>, <b>Canada (B1)</b>, and <b>USA (D1)</b>. 
-              UEFA distribution (16 teams) ensures 1-2 per group. All moves are validated against continental separation rules.
-            </p>
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-8 max-w-4xl mx-auto flex flex-col md:flex-row gap-8 items-center">
+            <div className="text-center md:text-left flex-1">
+              <h4 className="font-black text-indigo-400 mb-2 uppercase tracking-widest flex items-center gap-2 justify-center md:justify-start">
+                <Globe size={20} className="text-indigo-500" />
+                FIFA Draw Protocols
+              </h4>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                The 48-team expansion introduces 12 groups. 
+                Our logic strictly enforces <b>1 team per pot</b> per group, 
+                <b>max 2 UEFA teams</b> per group, and <b>no same-confederation</b> matchups for non-European teams.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center w-24">
+                <div className="text-indigo-400 font-bold text-xl">16</div>
+                <div className="text-[9px] text-slate-500 font-bold uppercase">UEFA</div>
+              </div>
+              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center w-24">
+                <div className="text-indigo-400 font-bold text-xl">4</div>
+                <div className="text-[9px] text-slate-500 font-bold uppercase">Pots</div>
+              </div>
+              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center w-24">
+                <div className="text-indigo-400 font-bold text-xl">12</div>
+                <div className="text-[9px] text-slate-500 font-bold uppercase">Groups</div>
+              </div>
+            </div>
           </div>
         )}
       </main>

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Group, Team } from '../types';
+import { TeamIcon } from './TeamIcon';
 
 interface GroupCardProps {
   group: Group;
@@ -9,7 +10,8 @@ interface GroupCardProps {
 
 const GroupCard: React.FC<GroupCardProps> = ({ group, onMoveTeam }) => {
   const [isOver, setIsOver] = useState(false);
-  const slots = [0, 1, 2, 3];
+  // Slots represent Pot 1, 2, 3, 4
+  const slots = [1, 2, 3, 4];
 
   const handleDragStart = (e: React.DragEvent, team: Team) => {
     e.dataTransfer.setData('teamId', team.id);
@@ -32,10 +34,7 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, onMoveTeam }) => {
     setIsOver(false);
     const teamId = e.dataTransfer.getData('teamId');
     const fromGroupId = e.dataTransfer.getData('fromGroupId') || null;
-    
-    // Prevent dropping into same group
     if (fromGroupId === group.id) return;
-    
     onMoveTeam(teamId, fromGroupId, group.id);
   };
 
@@ -50,31 +49,38 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, onMoveTeam }) => {
           : 'border-slate-800 hover:border-slate-700'
       }`}
     >
-      <div className={`px-4 py-2 border-b transition-colors ${isOver ? 'bg-indigo-900/50' : 'bg-indigo-950/40 border-slate-800'}`}>
-        <h3 className="text-indigo-400 font-black text-lg">GROUP {group.name}</h3>
+      <div className={`px-4 py-2 border-b transition-colors flex justify-between items-center ${isOver ? 'bg-indigo-900/50' : 'bg-indigo-950/40 border-slate-800'}`}>
+        <h3 className="text-indigo-400 font-black text-lg tracking-wider">GROUP {group.name}</h3>
+        <div className="flex gap-1">
+          {slots.map(s => {
+            const hasTeam = group.teams.some(t => t.pot === s);
+            return <div key={s} className={`w-1.5 h-1.5 rounded-full ${hasTeam ? 'bg-indigo-500' : 'bg-slate-700'}`} />
+          })}
+        </div>
       </div>
       <div className="p-3 space-y-2 min-h-[160px]">
-        {slots.map((slotIndex) => {
-          const team = group.teams[slotIndex];
+        {slots.map((potNum) => {
+          const team = group.teams.find(t => t.pot === potNum);
           return (
             <div 
-              key={slotIndex} 
+              key={potNum} 
               draggable={!!team}
               onDragStart={(e) => team && handleDragStart(e, team)}
-              className={`flex items-center gap-3 h-9 px-3 rounded border transition-all duration-500 ${
+              className={`group flex items-center gap-3 h-10 px-3 rounded border transition-all duration-300 ${
                 team 
-                  ? 'bg-slate-800 border-indigo-500/30 text-slate-100 cursor-grab active:cursor-grabbing hover:bg-slate-700' 
+                  ? 'bg-slate-800 border-indigo-500/30 text-slate-100 cursor-grab active:cursor-grabbing hover:bg-slate-750 hover:border-indigo-500/60' 
                   : 'bg-slate-950/40 border-slate-900 text-slate-700 border-dashed'
               }`}
             >
+              <div className="w-8 text-[9px] font-black text-slate-600 uppercase tracking-tighter">P{potNum}</div>
               {team ? (
                 <>
-                  <span className="text-lg">{team.flag}</span>
-                  <span className="font-semibold flex-1 truncate text-xs sm:text-sm">{team.name}</span>
-                  <span className="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-400">{team.confederation}</span>
+                  <TeamIcon code={team.flagCode} name={team.name} className="w-5 h-3.5" />
+                  <span className="font-bold flex-1 truncate text-xs sm:text-sm">{team.name}</span>
+                  <span className="text-[9px] bg-slate-900 px-1.5 py-0.5 rounded text-slate-500 font-bold">{team.confederation}</span>
                 </>
               ) : (
-                <span className="text-[10px] font-mono opacity-20">— EMPTY —</span>
+                <span className="text-[10px] font-mono opacity-10">— OPEN —</span>
               )}
             </div>
           );

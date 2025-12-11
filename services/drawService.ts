@@ -5,12 +5,13 @@ import { Group, Team, Confederation } from '../types';
  * Checks if a team can be placed in a specific group based on FIFA constraints.
  * Rule 1: No group can contain more than one team from the same Confederation, EXCEPT for UEFA.
  * Rule 2: A maximum of two UEFA teams are allowed per group.
+ * Rule 3: STRICT POT CONSTRAINT - A group can only have ONE team from each pot.
  */
 export const isValidPlacement = (team: Team, group: Group): boolean => {
   const currentTeams = group.teams;
   
-  // If group is already full
-  if (currentTeams.length >= 4) return false;
+  // Rule 3: One team per pot
+  if (currentTeams.some(t => t.pot === team.pot)) return false;
 
   const confedCounts: Record<Confederation, number> = {
     [Confederation.UEFA]: 0,
@@ -36,19 +37,14 @@ export const isValidPlacement = (team: Team, group: Group): boolean => {
   }
 };
 
-/**
- * Finds the first valid group index for a team.
- * Groups are checked sequentially from A to L, but with a quadrant bias for Pot 1 seeds.
- */
 export const findFirstValidGroupIndex = (team: Team, groups: Group[]): number => {
   // Competitive Balance: Protect quadrants for top seeds in Pot 1
-  // Top 4 non-host seeds (Rank 1-4: ARG, FRA, ESP, ENG)
   if (team.pot === 1 && !team.isHost && team.rank <= 4) {
     const preferredGroups: number[] = [];
-    if (team.id === 'ARG') preferredGroups.push(4, 5, 6); // Quadrant 2 (E, F, G)
-    if (team.id === 'FRA') preferredGroups.push(7, 8);    // Quadrant 3 (H, I)
-    if (team.id === 'ESP') preferredGroups.push(9, 10);   // Quadrant 4 (J, K)
-    if (team.id === 'ENG') preferredGroups.push(11);      // Quadrant 4 (L)
+    if (team.id === 'ARG') preferredGroups.push(4, 5, 6); 
+    if (team.id === 'FRA') preferredGroups.push(7, 8);    
+    if (team.id === 'ESP') preferredGroups.push(9, 10);   
+    if (team.id === 'ENG') preferredGroups.push(11);      
     
     for (const idx of preferredGroups) {
       if (isValidPlacement(team, groups[idx])) return idx;
@@ -63,9 +59,6 @@ export const findFirstValidGroupIndex = (team: Team, groups: Group[]): number =>
   return -1;
 };
 
-/**
- * Utility to shuffle an array (Fisher-Yates)
- */
 export const shuffle = <T,>(array: T[]): T[] => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
