@@ -31,6 +31,11 @@ const App: React.FC = () => {
   const [view, setView] = useState<AppView>('draw');
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'system');
   const [draggedTeam, setDraggedTeam] = useState<Team | null>(null);
+  
+  // Undo/Redo Stacks (Session based)
+  const [pastStates, setPastStates] = useState<DrawState[]>([]);
+  const [futureStates, setFutureStates] = useState<DrawState[]>([]);
+  
   const autoDrawInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -63,6 +68,8 @@ const App: React.FC = () => {
   const resetDraw = () => {
     if (autoDrawInterval.current) clearInterval(autoDrawInterval.current);
     setView('draw');
+    setPastStates([]);
+    setFutureStates([]);
     
     const pot1 = MOCK_TEAMS.filter(t => t.pot === 1);
     const hosts = pot1.filter(t => t.isHost);
@@ -144,6 +151,10 @@ const App: React.FC = () => {
   const drawNextTeam = useCallback(() => {
     setState(prev => {
       const newState = processNextTeam(prev);
+      if (newState !== prev && !newState.error) {
+        setPastStates(p => [...p, prev]);
+        setFutureStates([]);
+      }
       if (newState.isComplete && autoDrawInterval.current) {
         clearInterval(autoDrawInterval.current);
       }
@@ -155,6 +166,10 @@ const App: React.FC = () => {
     if (autoDrawInterval.current) clearInterval(autoDrawInterval.current);
     
     setState(prev => {
+      // Record state BEFORE lightning draw so one UNDO reverts the whole thing
+      setPastStates(p => [...p, prev]);
+      setFutureStates([]);
+
       let currentState = { ...prev, isDrawing: false };
       while (!currentState.isComplete && !currentState.error) {
         currentState = processNextTeam(currentState);
@@ -168,47 +183,22 @@ const App: React.FC = () => {
       clearInterval(autoDrawInterval.current);
     }
 
-    setState(prev => {
-      if (prev.history.length === 0) return { ...prev, isDrawing: false };
+    if (pastStates.length > 0) {
+      const lastState = pastStates[pastStates.length - 1];
+      setFutureStates(f => [state, ...f]);
+      setPastStates(p => p.slice(0, -1));
+      setState(lastState);
+    }
+  }, [pastStates, state]);
 
-      const lastMove = prev.history[prev.history.length - 1];
-      const { team, groupId } = lastMove;
-
-      const newGroups = prev.groups.map(g => {
-        if (g.id === groupId) {
-          return { ...g, teams: g.teams.filter(t => t.id !== team.id) };
-        }
-        return g;
-      });
-
-      let nextTeamIdx = prev.currentTeamIndex - 1;
-      let nextPotIdx = prev.currentPotIndex;
-
-      if (prev.isComplete) {
-        nextPotIdx = 3;
-        nextTeamIdx = prev.pots[3].length - 1;
-      } else if (nextTeamIdx < 0) {
-        if (nextPotIdx > 0) {
-          nextPotIdx--;
-          nextTeamIdx = prev.pots[nextPotIdx].length - 1;
-        } else {
-          nextTeamIdx = 0;
-          nextPotIdx = 0;
-        }
-      }
-
-      return {
-        ...prev,
-        groups: newGroups,
-        currentPotIndex: nextPotIdx,
-        currentTeamIndex: nextTeamIdx,
-        history: prev.history.slice(0, -1),
-        isComplete: false,
-        isDrawing: false,
-        error: undefined
-      };
-    });
-  }, []);
+  const redoNextMove = useCallback(() => {
+    if (futureStates.length > 0) {
+      const nextState = futureStates[0];
+      setPastStates(p => [...p, state]);
+      setFutureStates(f => f.slice(1));
+      setState(nextState);
+    }
+  }, [futureStates, state]);
 
   const moveTeam = (teamId: string, fromGroupId: string | null, toGroupId: string) => {
     setState(prev => {
@@ -229,6 +219,8 @@ const App: React.FC = () => {
 
       const existingTeamInTarget = targetGroup.teams.find(t => t.pot === movingTeam!.pot);
 
+      let newState: DrawState | null = null;
+
       if (existingTeamInTarget) {
         if (sourceGroup) {
           if (!isValidSwap(movingTeam, sourceGroup, existingTeamInTarget, targetGroup)) {
@@ -245,54 +237,64 @@ const App: React.FC = () => {
             return g;
           });
 
-          return {
+          newState = {
             ...prev,
             groups: newGroups,
             error: undefined,
             history: [...prev.history, { team: movingTeam, groupId: toGroupId }]
           };
         } else {
-          return { ...prev, error: `Group ${toGroupId} already has a team from Pot ${movingTeam.pot}. Use "Previous Move" to clear slots.` };
+          return { ...prev, error: `Group ${toGroupId} already has a team from Pot ${movingTeam.pot}. Use "Undo" to clear slots.` };
         }
       }
 
-      if (movingTeam.isHost) {
-        if (movingTeam.id === 'MEX' && toGroupId !== 'A') return { ...prev, error: "Mexico is locked to Group A" };
-        if (movingTeam.id === 'CAN' && toGroupId !== 'B') return { ...prev, error: "Canada is locked to Group B" };
-        if (movingTeam.id === 'USA' && toGroupId !== 'D') return { ...prev, error: "USA is locked to Group D" };
-      }
-
-      if (!isValidPlacement(movingTeam, targetGroup)) {
-        return { ...prev, error: `Placement invalid: Same-confederation or UEFA limits violated.` };
-      }
-
-      let newGroups = prev.groups.map(g => {
-        if (g.id === fromGroupId) return { ...g, teams: g.teams.filter(t => t.id !== teamId) };
-        if (g.id === toGroupId) return { ...g, teams: [...g.teams, movingTeam!] };
-        return g;
-      });
-
-      let nextPotIdx = prev.currentPotIndex;
-      let nextTeamIdx = prev.currentTeamIndex;
-      let isComplete = prev.isComplete;
-
-      if (!fromGroupId) {
-        const currentPot = prev.pots[prev.currentPotIndex];
-        nextTeamIdx++;
-        if (nextTeamIdx >= currentPot.length) {
-          if (nextPotIdx >= 3) isComplete = true; else { nextPotIdx++; nextTeamIdx = 0; }
+      if (!newState) {
+        if (movingTeam.isHost) {
+          if (movingTeam.id === 'MEX' && toGroupId !== 'A') return { ...prev, error: "Mexico is locked to Group A" };
+          if (movingTeam.id === 'CAN' && toGroupId !== 'B') return { ...prev, error: "Canada is locked to Group B" };
+          if (movingTeam.id === 'USA' && toGroupId !== 'D') return { ...prev, error: "USA is locked to Group D" };
         }
+
+        if (!isValidPlacement(movingTeam, targetGroup)) {
+          return { ...prev, error: `Placement invalid: Same-confederation or UEFA limits violated.` };
+        }
+
+        let newGroups = prev.groups.map(g => {
+          if (g.id === fromGroupId) return { ...g, teams: g.teams.filter(t => t.id !== teamId) };
+          if (g.id === toGroupId) return { ...g, teams: [...g.teams, movingTeam!] };
+          return g;
+        });
+
+        let nextPotIdx = prev.currentPotIndex;
+        let nextTeamIdx = prev.currentTeamIndex;
+        let isComplete = prev.isComplete;
+
+        if (!fromGroupId) {
+          const currentPot = prev.pots[prev.currentPotIndex];
+          nextTeamIdx++;
+          if (nextTeamIdx >= currentPot.length) {
+            if (nextPotIdx >= 3) isComplete = true; else { nextPotIdx++; nextTeamIdx = 0; }
+          }
+        }
+
+        newState = { 
+          ...prev, 
+          groups: newGroups, 
+          currentPotIndex: nextPotIdx, 
+          currentTeamIndex: nextTeamIdx, 
+          isComplete, 
+          error: undefined,
+          history: [...prev.history, { team: movingTeam!, groupId: toGroupId }]
+        };
       }
 
-      return { 
-        ...prev, 
-        groups: newGroups, 
-        currentPotIndex: nextPotIdx, 
-        currentTeamIndex: nextTeamIdx, 
-        isComplete, 
-        error: undefined,
-        history: [...prev.history, { team: movingTeam!, groupId: toGroupId }]
-      };
+      if (newState && newState !== prev) {
+        setPastStates(p => [...p, prev]);
+        setFutureStates([]);
+        return newState;
+      }
+
+      return prev;
     });
   };
 
@@ -306,6 +308,8 @@ const App: React.FC = () => {
 
   const handleLoadState = (newState: DrawState) => {
     if (autoDrawInterval.current) clearInterval(autoDrawInterval.current);
+    setPastStates([]);
+    setFutureStates([]);
     setState(newState);
     setView('draw');
   };
@@ -426,13 +430,15 @@ const App: React.FC = () => {
         onFastForward={handleFastDraw}
         onNext={drawNextTeam}
         onUndo={undoLastMove}
+        onRedo={redoNextMove}
         onReset={resetDraw}
         onExport={() => {}}
         onProceed={() => setView('knockouts')}
         isDrawing={state.isDrawing}
         isComplete={state.isComplete}
         canNext={!state.isComplete && !state.error}
-        canUndo={state.history.length > 0}
+        canUndo={pastStates.length > 0}
+        canRedo={futureStates.length > 0}
         currentView={view}
       />
     </div>

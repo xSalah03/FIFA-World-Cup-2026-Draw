@@ -11,7 +11,7 @@ export interface GroupStanding extends Team {
 
 export interface BracketMatch extends Match {
   nextMatchId?: string;
-  round: 'R32' | 'R16' | 'QF' | 'SF' | 'F';
+  round: 'R32' | 'R16' | 'QF' | 'SF' | 'F' | '3RD';
 }
 
 /**
@@ -202,6 +202,12 @@ export const generateFullBracket = (
     return m.winnerId === m.home?.id ? m.home : m.away;
   };
 
+  const getLoser = (matches: BracketMatch[], id: string) => {
+    const m = matches.find(x => x.id === id);
+    if (!m || !m.winnerId || !m.home || !m.away) return null;
+    return m.winnerId === m.home.id ? m.away : m.home;
+  };
+
   // Round of 32 Pairing Logic (Corrected 48-team unique distribution)
   const r32Matches: BracketMatch[] = [
     { id: '49', label: 'Match 49', round: 'R32', h: getPos('A', 1), a: getPos('C', 2), nextMatchId: '65' },
@@ -260,5 +266,15 @@ export const generateFullBracket = (
     winnerId: overrides['79']
   } as BracketMatch;
 
-  return [...r32Matches, ...r16Matches, ...qfMatches, ...sfMatches, fMatch];
+  // 3rd Place Play-off
+  const tMatch: BracketMatch = {
+    id: '80',
+    label: '3rd Place Match',
+    round: '3RD',
+    home: getLoser(sfMatches, '77'),
+    away: getLoser(sfMatches, '78'),
+    winnerId: overrides['80']
+  } as BracketMatch;
+
+  return [...r32Matches, ...r16Matches, ...qfMatches, ...sfMatches, fMatch, tMatch];
 };
