@@ -10,7 +10,7 @@ export enum Confederation {
 }
 
 export type Theme = 'light' | 'dark' | 'system';
-export type AppView = 'draw' | 'knockouts';
+export type AppView = 'draw' | 'knockouts' | 'standings';
 
 export interface Team {
   id: string;
@@ -36,13 +36,23 @@ export interface Match {
   winnerId?: string;
 }
 
+export interface DrawHistoryEntry {
+  groups: Group[];
+  currentPotIndex: number;
+  currentTeamIndex: number;
+  isComplete: boolean;
+  type: 'pick' | 'swap';
+  lastTeam?: Team;
+  lastGroupId?: string;
+}
+
 export interface DrawState {
   pots: Team[][];
   groups: Group[];
   currentPotIndex: number;
   currentTeamIndex: number;
   isDrawing: boolean;
-  history: { team: Team; groupId: string }[];
+  history: DrawHistoryEntry[];
   isComplete: boolean;
   error?: string;
 }

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Save, FolderOpen, Trash2, Clock, Check, Star } from 'lucide-react';
-import { DrawState, SavedDraw, Team } from '../types';
+import { DrawState, SavedDraw, Team, DrawHistoryEntry } from '../types';
 import { MOCK_TEAMS, GROUP_IDS } from '../constants';
 
 interface SavedDrawsManagerProps {
@@ -38,8 +38,6 @@ const getOfficialPresetDraw = (): SavedDraw => {
     teams: (mapping[id] || []).map(findTeam)
   }));
 
-  const history = groups.flatMap(g => g.teams.map(t => ({ team: t, groupId: g.id })));
-
   return {
     id: 'official-preset-2026',
     name: 'Official 2026 Preview',
@@ -55,7 +53,7 @@ const getOfficialPresetDraw = (): SavedDraw => {
       currentPotIndex: 3,
       currentTeamIndex: 11,
       isDrawing: false,
-      history,
+      history: [], // For preset, history can be empty as it's a static final state
       isComplete: true,
     },
     isPreset: true
