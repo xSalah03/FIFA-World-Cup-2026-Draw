@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo } from 'react';
 import { MOCK_TEAMS, CONFEDERATION_LABELS } from '../constants';
 import { Confederation, Team } from '../types';
 import { TeamIcon } from './TeamIcon';
-import { Search, Filter, Globe, Hash, TrendingUp, Info, Users, Shield, Star, LayoutGrid, List } from 'lucide-react';
+import { Search, Globe, Hash, TrendingUp, Users, Star, LayoutGrid, List } from 'lucide-react';
 
 export const TeamsListView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,26 +54,30 @@ export const TeamsListView: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatSummary 
-          icon={<Users className="text-indigo-600 dark:text-indigo-400" size={20} />} 
-          label="Total Nations" 
-          value={stats.total} 
-          subLabel="Qualified Finalists"
-        />
-        <StatSummary 
-          icon={<TrendingUp className="text-emerald-600 dark:text-emerald-400" size={20} />} 
-          label="Average Rank" 
-          value={`#${stats.avgRank}`} 
-          subLabel="Tournament Field"
-        />
-        <StatSummary 
-          icon={<Star className="text-amber-500" size={20} />} 
-          label="Host Nations" 
-          value={stats.hosts} 
-          subLabel="MEX / CAN / USA"
-        />
+      {/* Header Dashboard Style Stats - Updated to clean white card aesthetic */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-sm">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-full blur-[60px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex items-center gap-5">
+            <div className="bg-indigo-600 p-4 rounded-3xl shadow-xl shadow-indigo-500/20">
+               <Users className="text-indigo-200" size={32} />
+            </div>
+            <div>
+              <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Qualified <span className="text-indigo-600 dark:text-indigo-400">Nations</span></h2>
+              <p className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">48 Finalists · 2026 Tournament Field</p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+             <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 rounded-3xl border border-slate-200 dark:border-slate-700 text-center min-w-[120px] shadow-sm">
+                <div className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest mb-1">Avg Rank</div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">#{stats.avgRank}</div>
+             </div>
+             <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 rounded-3xl border border-slate-200 dark:border-slate-700 text-center min-w-[120px] shadow-sm">
+                <div className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest mb-1">Hosts</div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.hosts}</div>
+             </div>
+          </div>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -83,65 +86,50 @@ export const TeamsListView: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <input 
             type="text" 
-            placeholder="Search teams by name or code..."
+            placeholder="Find nation..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
           />
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <button 
-              onClick={() => setGrouping('pot')}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${grouping === 'pot' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}
-            >
-              <Hash size={12} /> By Pot
+        <div className="flex items-center gap-3">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button onClick={() => setGrouping('pot')} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${grouping === 'pot' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}>
+              <Hash size={12} /> Pots
             </button>
-            <button 
-              onClick={() => setGrouping('confed')}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${grouping === 'confed' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}
-            >
-              <Globe size={12} /> By Region
+            <button onClick={() => setGrouping('confed')} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${grouping === 'confed' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}>
+              <Globe size={12} /> Regions
             </button>
           </div>
-
-          <select 
-            value={filterConfed}
-            onChange={(e) => setFilterConfed(e.target.value as Confederation | 'ALL')}
-            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/20"
-          >
-            <option value="ALL">All Regions</option>
-            {Object.entries(CONFEDERATION_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
         </div>
       </div>
 
-      {/* Grid Display */}
+      {/* Display Sections */}
       <div className="space-y-12">
         {categorizedTeams.map(section => (
-          <section key={section.id} className="space-y-4">
-            <div className="flex items-end gap-3 px-2">
-              <h2 className="text-xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white leading-none">
-                {section.title}
-              </h2>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">
-                {section.subtitle}
-              </span>
-              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800 mb-1.5 ml-2"></div>
+          <section key={section.id} className="space-y-5">
+            <div className="flex items-center gap-4 px-2">
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">{section.title}</h3>
+              <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{section.subtitle}</span>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {section.teams.map(team => (
-                <TeamCard key={team.id} team={team} />
-              ))}
-              {section.teams.length === 0 && (
-                <div className="col-span-full py-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <p className="text-slate-400 dark:text-slate-600 text-sm font-medium italic">No teams found matching filters</p>
+                <div key={team.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+                   <div className="flex justify-between items-start mb-4">
+                      <TeamIcon code={team.flagCode} name={team.name} className="w-10 h-6.5 rounded shadow-lg group-hover:scale-110 transition-transform" />
+                      {team.isHost && <Star size={12} className="text-amber-500 fill-amber-500" />}
+                   </div>
+                   <div className="space-y-1">
+                      <h4 className="font-black text-slate-900 dark:text-white uppercase italic text-xs truncate">{team.name}</h4>
+                      <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                         <span>Rank #{team.rank}</span>
+                         <span className="text-indigo-500">{team.id}</span>
+                      </div>
+                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </section>
         ))}
@@ -149,53 +137,3 @@ export const TeamsListView: React.FC = () => {
     </div>
   );
 };
-
-const TeamCard: React.FC<{ team: Team }> = ({ team }) => (
-  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-    <div className="flex items-start justify-between mb-3">
-      <TeamIcon code={team.flagCode} name={team.name} className="w-10 h-6.5 shadow-md group-hover:scale-110 transition-transform" />
-      <span className="text-[10px] font-black text-slate-400 dark:text-slate-600 group-hover:text-indigo-500 transition-colors">{team.id}</span>
-    </div>
-    <div className="space-y-1">
-      <h4 className="font-black text-slate-900 dark:text-white uppercase italic tracking-tight truncate leading-tight">
-        {team.name}
-      </h4>
-      <div className="flex items-center gap-1.5">
-        <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
-          team.pot === 1 ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
-          team.pot === 2 ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400' :
-          team.pot === 3 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400' :
-          'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400'
-        }`}>
-          Pot {team.pot}
-        </span>
-        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Rank #{team.rank}</span>
-      </div>
-    </div>
-    
-    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-      <div className="flex items-center gap-1">
-        <Globe size={10} className="text-slate-300 dark:text-slate-700" />
-        <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{team.confederation}</span>
-      </div>
-      {team.isHost && (
-        <div className="bg-amber-400 text-amber-950 p-1 rounded shadow-sm">
-          <Star size={10} fill="currentColor" />
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-const StatSummary: React.FC<{ icon: React.ReactNode, label: string, value: string | number, subLabel: string }> = ({ icon, label, value, subLabel }) => (
-  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
-      {icon}
-    </div>
-    <div className="flex flex-col">
-      <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{label}</span>
-      <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none my-0.5">{value}</span>
-      <span className="text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">{subLabel}</span>
-    </div>
-  </div>
-);
