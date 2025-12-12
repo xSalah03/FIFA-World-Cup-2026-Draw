@@ -3,7 +3,6 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { MOCK_TEAMS, GROUP_IDS } from './constants';
 import { DrawState, Group, Team, Theme, AppView, DrawHistoryEntry } from './types';
 import { findSafeGroupIndex, shuffle, isValidPlacement, isValidSwap } from './services/drawService';
-// Imported simulation service and result interface
 import { calculateGroupStandings, SimulationResult } from './services/knockoutService';
 import PotList from './components/PotList';
 import GroupCard from './components/GroupCard';
@@ -66,21 +65,27 @@ const App: React.FC = () => {
     localStorage.setItem('theme', theme);
 
     const applyTheme = () => {
-      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const isDark = 
+        theme === 'dark' || 
+        (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      
       if (isDark) {
         root.classList.add('dark');
+        root.style.colorScheme = 'dark';
       } else {
         root.classList.remove('dark');
+        root.style.colorScheme = 'light';
       }
     };
 
     applyTheme();
 
+    // Listen for system theme changes if 'system' is selected
     if (theme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => applyTheme();
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
+      const handler = () => applyTheme();
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
     }
   }, [theme]);
 
@@ -115,10 +120,6 @@ const App: React.FC = () => {
     });
   };
 
-  /**
-   * Performs a single drawing step. 
-   * Captures the state BEFORE any changes for the history snapshot.
-   */
   const processNextTeam = (currentState: DrawState): DrawState => {
     if (currentState.isComplete) return currentState;
 
@@ -144,8 +145,6 @@ const App: React.FC = () => {
       };
     }
 
-    // SNAPSHOT: Represents the state BEFORE the team is picked.
-    // Restoring this snapshot will return the team to the pot and reset indices.
     const historyEntry: DrawHistoryEntry = {
       groups: JSON.parse(JSON.stringify(groups)),
       currentPotIndex,
@@ -204,9 +203,6 @@ const App: React.FC = () => {
     });
   }, []);
 
-  /**
-   * Restoration-based undo. Simply pops the last state from history.
-   */
   const undoLastMove = useCallback(() => {
     if (autoDrawInterval.current) {
       clearInterval(autoDrawInterval.current);
@@ -230,9 +226,6 @@ const App: React.FC = () => {
     });
   }, []);
 
-  /**
-   * Handles manual drag and drop for both picking (pot to group) and swapping (group to group).
-   */
   const moveTeam = (teamId: string, fromGroupId: string | null, toGroupId: string) => {
     setState(prev => {
       const targetGroup = prev.groups.find(g => g.id === toGroupId);
@@ -250,7 +243,6 @@ const App: React.FC = () => {
       if (!movingTeam) return prev;
       const existingTeamInTarget = targetGroup.teams.find(t => t.pot === movingTeam!.pot);
 
-      // Snapshot for history before any changes are applied.
       const snapshot: DrawHistoryEntry = {
         groups: JSON.parse(JSON.stringify(prev.groups)),
         currentPotIndex: prev.currentPotIndex,
@@ -261,7 +253,6 @@ const App: React.FC = () => {
         lastGroupId: toGroupId
       };
 
-      // Case: SWAP between groups
       if (fromGroupId && sourceGroup) {
         if (existingTeamInTarget) {
           if (!isValidSwap(movingTeam, sourceGroup, existingTeamInTarget, targetGroup)) {
@@ -272,10 +263,8 @@ const App: React.FC = () => {
             if (g.id === toGroupId) return { ...g, teams: g.teams.map(t => t.id === existingTeamInTarget.id ? movingTeam! : t) };
             return g;
           });
-          // For swaps, indices currentPotIndex/currentTeamIndex do NOT change.
           return { ...prev, groups: newGroups, error: undefined, history: [...prev.history, snapshot] };
         } else {
-          // Standard move between groups (into empty slot)
           if (!isValidPlacement(movingTeam, targetGroup)) return { ...prev, error: `Placement invalid: Confederation rules violated.` };
           const newGroups = prev.groups.map(g => {
             if (g.id === fromGroupId) return { ...g, teams: g.teams.filter(t => t.id !== teamId) };
@@ -286,7 +275,6 @@ const App: React.FC = () => {
         }
       }
 
-      // Case: PICK from pot to group
       if (!fromGroupId) {
         if (existingTeamInTarget) {
           return { ...prev, error: `Group ${toGroupId} already has a team from Pot ${movingTeam.pot}. Use "Undo" to revert picks.` };

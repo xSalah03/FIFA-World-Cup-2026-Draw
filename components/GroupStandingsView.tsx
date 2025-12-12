@@ -40,7 +40,7 @@ export const GroupStandingsView: React.FC<GroupStandingsViewProps> = ({ groups, 
   }, [groupTables]);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-8 pb-20">
       {/* FIXED HEIGHT DASHBOARD - Decisive fix for layout stability */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-6 lg:p-8 shadow-xl dark:shadow-none relative overflow-hidden h-[300px] flex flex-col justify-between">
         <div className="absolute top-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] -translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
@@ -182,7 +182,7 @@ export const GroupStandingsView: React.FC<GroupStandingsViewProps> = ({ groups, 
 };
 
 const SummaryCard: React.FC<{ label: string, value: string | number, subValue?: string, icon: React.ReactNode, color: string }> = ({ label, value, subValue, icon, color }) => (
-  <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-3.5 flex items-center gap-3.5 h-full overflow-hidden shrink-0">
+  <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-3.5 flex items-center gap-3.5 h-full overflow-hidden shrink-0 transition-colors">
     <div className={`${color} p-2.5 rounded-xl text-white shadow-lg shrink-0`}>
       {icon}
     </div>
