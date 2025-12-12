@@ -1,4 +1,3 @@
-
 import { Group, Team, Match } from '../types';
 
 export interface GroupStanding extends Team {
@@ -12,9 +11,10 @@ export interface GroupStanding extends Team {
 export interface BracketMatch extends Match {
   nextMatchId?: string;
   round: 'R32' | 'R16' | 'QF' | 'SF' | 'F' | 'B';
+  venue?: string;
+  date?: string;
 }
 
-// Added missing export for SimulationResult to fix build error
 export interface SimulationResult {
   groupTables: Record<string, GroupStanding[]>;
   bestThirds: GroupStanding[];
@@ -22,28 +22,17 @@ export interface SimulationResult {
 
 /**
  * Simulates a single match between two teams based on their rank and host status.
- * Uses a more sophisticated goal distribution model to ensure realistic GD.
  */
 const simulateMatch = (a: Team, b: Team): [number, number, number, number] => {
-  // Apply host advantage: Hosts act as if they are ranked better
   const homeBoostA = a.isHost ? 20 : 0;
   const homeBoostB = b.isHost ? 20 : 0;
   const adjRankA = Math.max(1, a.rank - homeBoostA);
   const adjRankB = Math.max(1, b.rank - homeBoostB);
   
-  // Calculate relative strength (0 to 1, where 0.5 is equal)
   const strengthA = 1 / (1 + Math.pow(10, (adjRankA - adjRankB) / 250));
-  const strengthB = 1 - strengthA;
-  const rankDiff = Math.abs(adjRankA - adjRankB);
-
-  // Goal generation logic
-  // Average goals in a WC match is ~2.6 (1.3 per team)
-  // We use the strength to deviate from this average
-  const generateGoals = (strength: number, opponentStrength: number) => {
-    // Base goal expectation scales with strength relative to opponent
+  
+  const generateGoals = (strength: number) => {
     const lambda = 1.2 * Math.pow(strength / 0.5, 1.5);
-    
-    // Simple Poisson-like distribution simulation
     let goals = 0;
     let p = Math.exp(-lambda);
     let r = Math.random();
@@ -57,15 +46,8 @@ const simulateMatch = (a: Team, b: Team): [number, number, number, number] => {
     return goals;
   };
 
-  let goalsA = generateGoals(strengthA, strengthB);
-  let goalsB = generateGoals(strengthB, strengthA);
-
-  // Adjust for extreme cases to maintain realism in a tournament setting
-  // (e.g., extremely rare to see 7+ goals unless rank diff is massive)
-  if (rankDiff < 40 && (goalsA > 4 || goalsB > 4)) {
-    if (goalsA > 4) goalsA = 3 + (goalsA % 2);
-    if (goalsB > 4) goalsB = 3 + (goalsB % 2);
-  }
+  let goalsA = generateGoals(strengthA);
+  let goalsB = generateGoals(1 - strengthA);
 
   const pointsA = goalsA > goalsB ? 3 : goalsA === goalsB ? 1 : 0;
   const pointsB = goalsB > goalsA ? 3 : goalsB === goalsA ? 1 : 0;
@@ -73,7 +55,6 @@ const simulateMatch = (a: Team, b: Team): [number, number, number, number] => {
   return [pointsA, pointsB, goalsA, goalsB];
 };
 
-// Updated return type to use SimulationResult interface
 export const calculateGroupStandings = (groups: Group[]): SimulationResult => {
   const groupTables: Record<string, GroupStanding[]> = {};
   const allThirds: GroupStanding[] = [];
@@ -89,7 +70,6 @@ export const calculateGroupStandings = (groups: Group[]): SimulationResult => {
       status: 'eliminated' 
     });
 
-    // Each team plays every other team once in the group
     for (let i = 0; i < group.teams.length; i++) {
       for (let j = i + 1; j < group.teams.length; j++) {
         const [pA, pB, gA, gB] = simulateMatch(group.teams[i], group.teams[j]);
@@ -108,7 +88,6 @@ export const calculateGroupStandings = (groups: Group[]): SimulationResult => {
       }
     }
 
-    // Sort by Points, then GD, then Goals For, then Rank (as final tiebreaker)
     const sorted = Object.values(standings).sort((a, b) => 
       b.points - a.points || 
       b.goalsDiff - a.goalsDiff || 
@@ -116,13 +95,11 @@ export const calculateGroupStandings = (groups: Group[]): SimulationResult => {
       a.rank - b.rank
     );
 
-    // Top 2 always qualify
     sorted.forEach((t, i) => { if (i < 2) t.status = 'qualified'; });
     groupTables[group.id] = sorted;
     allThirds.push(sorted[2]);
   });
 
-  // Calculate best 8 third-place teams out of 12 groups
   const bestThirds = allThirds
     .sort((a, b) => 
       b.points - a.points || 
@@ -133,7 +110,6 @@ export const calculateGroupStandings = (groups: Group[]): SimulationResult => {
     .slice(0, 8)
     .map(t => ({ ...t, status: 'best-third' as const }));
   
-  // Update status in main tables for visual feedback
   Object.keys(groupTables).forEach(gid => {
     groupTables[gid] = groupTables[gid].map(team => {
       if (bestThirds.some(bt => bt.id === team.id)) return { ...team, status: 'best-third' };
@@ -146,48 +122,55 @@ export const calculateGroupStandings = (groups: Group[]): SimulationResult => {
 
 export const simulateWinner = (home: Team | null, away: Team | null): string | undefined => {
   if (!home || !away) return undefined;
-  
-  // Knockout matches need a winner. We use a strength-based approach.
-  // We simulate a match and if it's a draw, we use rank as a proxy for "penalties"
   const [pA, pB, gA, gB] = simulateMatch(home, away);
-  
   if (gA > gB) return home.id;
   if (gB > gA) return away.id;
-  
-  // Tie-breaker: Weighted coin flip favoring better rank (Penalties simulation)
-  const penaltyProbA = 0.5 + ((away.rank - home.rank) / 400);
-  const clampedProb = Math.min(0.8, Math.max(0.2, penaltyProbA));
-  return Math.random() < clampedProb ? home.id : away.id;
+  return Math.random() > 0.5 ? home.id : away.id;
 };
 
-// Updated simulatedStandings parameter to use SimulationResult interface
 export const generateFullBracket = (
   groups: Group[], 
   overrides: Record<string, string> = {},
   simulatedStandings?: SimulationResult
 ): BracketMatch[] => {
-  const { groupTables, bestThirds } = simulatedStandings || calculateGroupStandings(groups);
+  const result = simulatedStandings || calculateGroupStandings(groups);
+  const { groupTables, bestThirds } = result;
+
   const getPos = (gid: string, pos: number) => groupTables[gid]?.[pos - 1] || null;
 
-  // Official 2026 R32 based on user provided schedule (Matches 73-88)
+  /**
+   * Official 2026 R32 Pairings (73-88) ordered by BRACKET PATH
+   * Sequence: Feed into R16 matches 89, 90, 93, 94 (Half 1) then 91, 92, 95, 96 (Half 2)
+   */
   const r32: BracketMatch[] = [
-    { id: '73', label: 'Match 73', round: 'R32', h: getPos('A', 2), a: getPos('B', 2), nextMatchId: '89' },
-    { id: '74', label: 'Match 74', round: 'R32', h: getPos('E', 1), a: bestThirds[0], nextMatchId: '89' },
-    { id: '75', label: 'Match 75', round: 'R32', h: getPos('F', 1), a: getPos('C', 2), nextMatchId: '90' },
-    { id: '76', label: 'Match 76', round: 'R32', h: getPos('C', 1), a: getPos('F', 2), nextMatchId: '90' },
-    { id: '77', label: 'Match 77', round: 'R32', h: getPos('I', 1), a: bestThirds[1], nextMatchId: '91' },
-    { id: '78', label: 'Match 78', round: 'R32', h: getPos('E', 2), a: getPos('I', 2), nextMatchId: '91' },
-    { id: '79', label: 'Match 79', round: 'R32', h: getPos('A', 1), a: bestThirds[2], nextMatchId: '92' },
-    { id: '80', label: 'Match 80', round: 'R32', h: getPos('L', 1), a: bestThirds[3], nextMatchId: '92' },
-    { id: '81', label: 'Match 81', round: 'R32', h: getPos('D', 1), a: bestThirds[4], nextMatchId: '93' },
-    { id: '82', label: 'Match 82', round: 'R32', h: getPos('G', 1), a: bestThirds[5], nextMatchId: '93' },
-    { id: '83', label: 'Match 83', round: 'R32', h: getPos('K', 2), a: getPos('L', 2), nextMatchId: '94' },
-    { id: '84', label: 'Match 84', round: 'R32', h: getPos('H', 1), a: getPos('J', 2), nextMatchId: '94' },
-    { id: '85', label: 'Match 85', round: 'R32', h: getPos('B', 1), a: bestThirds[6], nextMatchId: '95' },
-    { id: '86', label: 'Match 86', round: 'R32', h: getPos('J', 1), a: getPos('H', 2), nextMatchId: '95' },
-    { id: '87', label: 'Match 87', round: 'R32', h: getPos('K', 1), a: bestThirds[7], nextMatchId: '96' },
-    { id: '88', label: 'Match 88', round: 'R32', h: getPos('D', 2), a: getPos('G', 2), nextMatchId: '96' },
-  ].map(m => ({ ...m, home: (m as any).h, away: (m as any).a, winnerId: overrides[m.id] } as BracketMatch));
+    // Feeds Match 89 (QF 97 Path)
+    { id: '74', label: 'Match 74', round: 'R32', home: getPos('E', 1), away: bestThirds[0], nextMatchId: '89', venue: 'Boston Stadium', date: 'Monday, 29 June 2026' },
+    { id: '77', label: 'Match 77', round: 'R32', home: getPos('I', 1), away: bestThirds[1], nextMatchId: '89', venue: 'NY/NJ Stadium', date: 'Tuesday, 30 June 2026' },
+    // Feeds Match 90 (QF 97 Path)
+    { id: '73', label: 'Match 73', round: 'R32', home: getPos('A', 2), away: getPos('B', 2), nextMatchId: '90', venue: 'Los Angeles Stadium', date: 'Sunday, 28 June 2026' },
+    { id: '75', label: 'Match 75', round: 'R32', home: getPos('F', 1), away: getPos('C', 2), nextMatchId: '90', venue: 'Estadio Monterrey', date: 'Monday, 29 June 2026' },
+    
+    // Feeds Match 93 (QF 98 Path)
+    { id: '83', label: 'Match 83', round: 'R32', home: getPos('K', 2), away: getPos('L', 2), nextMatchId: '93', venue: 'Toronto Stadium', date: 'Thursday, 2 July 2026' },
+    { id: '84', label: 'Match 84', round: 'R32', home: getPos('H', 1), away: getPos('J', 2), nextMatchId: '93', venue: 'Los Angeles Stadium', date: 'Thursday, 2 July 2026' },
+    // Feeds Match 94 (QF 98 Path)
+    { id: '81', label: 'Match 81', round: 'R32', home: getPos('D', 1), away: bestThirds[4], nextMatchId: '94', venue: 'SF Bay Area Stadium', date: 'Wednesday, 1 July 2026' },
+    { id: '82', label: 'Match 82', round: 'R32', home: getPos('G', 1), away: bestThirds[5], nextMatchId: '94', venue: 'Seattle Stadium', date: 'Wednesday, 1 July 2026' },
+
+    // Feeds Match 91 (QF 99 Path)
+    { id: '76', label: 'Match 76', round: 'R32', home: getPos('C', 1), away: getPos('F', 2), nextMatchId: '91', venue: 'Houston Stadium', date: 'Monday, 29 June 2026' },
+    { id: '78', label: 'Match 78', round: 'R32', home: getPos('E', 2), away: getPos('I', 2), nextMatchId: '91', venue: 'Dallas Stadium', date: 'Tuesday, 30 June 2026' },
+    // Feeds Match 92 (QF 99 Path)
+    { id: '79', label: 'Match 79', round: 'R32', home: getPos('A', 1), away: bestThirds[2], nextMatchId: '92', venue: 'Mexico City Stadium', date: 'Tuesday, 30 June 2026' },
+    { id: '80', label: 'Match 80', round: 'R32', home: getPos('L', 1), away: bestThirds[3], nextMatchId: '92', venue: 'Atlanta Stadium', date: 'Wednesday, 1 July 2026' },
+
+    // Feeds Match 95 (QF 100 Path)
+    { id: '86', label: 'Match 86', round: 'R32', home: getPos('J', 1), away: getPos('H', 2), nextMatchId: '95', venue: 'Miami Stadium', date: 'Friday, 3 July 2026' },
+    { id: '88', label: 'Match 88', round: 'R32', home: getPos('D', 2), away: getPos('G', 2), nextMatchId: '95', venue: 'Dallas Stadium', date: 'Friday, 3 July 2026' },
+    // Feeds Match 96 (QF 100 Path)
+    { id: '85', label: 'Match 85', round: 'R32', home: getPos('B', 1), away: bestThirds[6], nextMatchId: '96', venue: 'BC Place Vancouver', date: 'Thursday, 2 July 2026' },
+    { id: '87', label: 'Match 87', round: 'R32', home: getPos('K', 1), away: bestThirds[7], nextMatchId: '96', venue: 'Kansas City Stadium', date: 'Friday, 3 July 2026' },
+  ].map(m => ({ ...m, winnerId: overrides[m.id] } as BracketMatch));
 
   const getWinner = (matches: BracketMatch[], id: string) => {
     const m = matches.find(x => x.id === id);
@@ -201,45 +184,54 @@ export const generateFullBracket = (
     return m.winnerId === m.home?.id ? m.away : m.home;
   };
 
+  // Round of 16 (89-96) - Ordered by bracket path
   const r16: BracketMatch[] = [
-    { id: '89', label: 'Match 89', round: 'R16', home: getWinner(r32, '73'), away: getWinner(r32, '74'), nextMatchId: '97' },
-    { id: '90', label: 'Match 90', round: 'R16', home: getWinner(r32, '75'), away: getWinner(r32, '76'), nextMatchId: '97' },
-    { id: '91', label: 'Match 91', round: 'R16', home: getWinner(r32, '77'), away: getWinner(r32, '78'), nextMatchId: '98' },
-    { id: '92', label: 'Match 92', round: 'R16', home: getWinner(r32, '79'), away: getWinner(r32, '80'), nextMatchId: '98' },
-    { id: '93', label: 'Match 93', round: 'R16', home: getWinner(r32, '81'), away: getWinner(r32, '82'), nextMatchId: '99' },
-    { id: '94', label: 'Match 94', round: 'R16', home: getWinner(r32, '83'), away: getWinner(r32, '84'), nextMatchId: '99' },
-    { id: '95', label: 'Match 95', round: 'R16', home: getWinner(r32, '85'), away: getWinner(r32, '86'), nextMatchId: '100' },
-    { id: '96', label: 'Match 96', round: 'R16', home: getWinner(r32, '87'), away: getWinner(r32, '88'), nextMatchId: '100' },
+    { id: '89', label: 'Match 89', round: 'R16', home: getWinner(r32, '74'), away: getWinner(r32, '77'), nextMatchId: '97', venue: 'Philadelphia Stadium', date: 'Saturday, 4 July 2026' },
+    { id: '90', label: 'Match 90', round: 'R16', home: getWinner(r32, '73'), away: getWinner(r32, '75'), nextMatchId: '97', venue: 'Houston Stadium', date: 'Saturday, 4 July 2026' },
+    { id: '93', label: 'Match 93', round: 'R16', home: getWinner(r32, '83'), away: getWinner(r32, '84'), nextMatchId: '98', venue: 'Dallas Stadium', date: 'Monday, 6 July 2026' },
+    { id: '94', label: 'Match 94', round: 'R16', home: getWinner(r32, '81'), away: getWinner(r32, '82'), nextMatchId: '98', venue: 'Seattle Stadium', date: 'Monday, 6 July 2026' },
+    { id: '91', label: 'Match 91', round: 'R16', home: getWinner(r32, '76'), away: getWinner(r32, '78'), nextMatchId: '99', venue: 'NY/NJ Stadium', date: 'Sunday, 5 July 2026' },
+    { id: '92', label: 'Match 92', round: 'R16', home: getWinner(r32, '79'), away: getWinner(r32, '80'), nextMatchId: '99', venue: 'Mexico City Stadium', date: 'Sunday, 5 July 2026' },
+    { id: '95', label: 'Match 95', round: 'R16', home: getWinner(r32, '86'), away: getWinner(r32, '88'), nextMatchId: '100', venue: 'Atlanta Stadium', date: 'Tuesday, 7 July 2026' },
+    { id: '96', label: 'Match 96', round: 'R16', home: getWinner(r32, '85'), away: getWinner(r32, '87'), nextMatchId: '100', venue: 'BC Place Vancouver', date: 'Tuesday, 7 July 2026' },
   ].map(m => ({ ...m, winnerId: overrides[m.id] } as BracketMatch));
 
+  // Quarter-Finals (97-100) - Ordered by bracket path
   const qf: BracketMatch[] = [
-    { id: '97', label: 'QF 1', round: 'QF', home: getWinner(r16, '89'), away: getWinner(r16, '90'), nextMatchId: '101' },
-    { id: '98', label: 'QF 2', round: 'QF', home: getWinner(r16, '91'), away: getWinner(r16, '92'), nextMatchId: '101' },
-    { id: '99', label: 'QF 3', round: 'QF', home: getWinner(r16, '93'), away: getWinner(r16, '94'), nextMatchId: '102' },
-    { id: '100', label: 'QF 4', round: 'QF', home: getWinner(r16, '95'), away: getWinner(r16, '96'), nextMatchId: '102' },
+    { id: '97', label: 'Match 97', round: 'QF', home: getWinner(r16, '89'), away: getWinner(r16, '90'), nextMatchId: '101', venue: 'Boston Stadium', date: 'Thursday, 9 July 2026' },
+    { id: '98', label: 'Match 98', round: 'QF', home: getWinner(r16, '93'), away: getWinner(r16, '94'), nextMatchId: '101', venue: 'Los Angeles Stadium', date: 'Friday, 10 July 2026' },
+    { id: '99', label: 'Match 99', round: 'QF', home: getWinner(r16, '91'), away: getWinner(r16, '92'), nextMatchId: '102', venue: 'Miami Stadium', date: 'Saturday, 11 July 2026' },
+    { id: '100', label: 'Match 100', round: 'QF', home: getWinner(r16, '95'), away: getWinner(r16, '96'), nextMatchId: '102', venue: 'Kansas City Stadium', date: 'Saturday, 11 July 2026' },
   ].map(m => ({ ...m, winnerId: overrides[m.id] } as BracketMatch));
 
+  // Semi-Finals (101-102) - Ordered by bracket path
   const sf: BracketMatch[] = [
-    { id: '101', label: 'SF 1', round: 'SF', home: getWinner(qf, '97'), away: getWinner(qf, '98'), nextMatchId: '104' },
-    { id: '102', label: 'SF 2', round: 'SF', home: getWinner(qf, '99'), away: getWinner(qf, '100'), nextMatchId: '104' },
+    { id: '101', label: 'Match 101', round: 'SF', home: getWinner(qf, '97'), away: getWinner(qf, '98'), nextMatchId: '104', venue: 'Dallas Stadium', date: 'Tuesday, 14 July 2026' },
+    { id: '102', label: 'Match 102', round: 'SF', home: getWinner(qf, '99'), away: getWinner(qf, '100'), nextMatchId: '104', venue: 'Atlanta Stadium', date: 'Wednesday, 15 July 2026' },
   ].map(m => ({ ...m, winnerId: overrides[m.id] } as BracketMatch));
 
+  // Bronze Final (103)
   const bronze: BracketMatch = { 
     id: '103', 
-    label: 'Bronze Final', 
+    label: 'Match 103', 
     round: 'B', 
     home: getLoser(sf, '101'), 
     away: getLoser(sf, '102'), 
-    winnerId: overrides['103'] 
+    winnerId: overrides['103'],
+    venue: 'Miami Stadium',
+    date: 'Saturday, 18 July 2026'
   };
 
+  // World Final (104)
   const final: BracketMatch = { 
     id: '104', 
-    label: 'World Final', 
+    label: 'Match 104', 
     round: 'F', 
     home: getWinner(sf, '101'), 
     away: getWinner(sf, '102'), 
-    winnerId: overrides['104'] 
+    winnerId: overrides['104'],
+    venue: 'NY/NJ Stadium',
+    date: 'Sunday, 19 July 2026'
   };
 
   return [...r32, ...r16, ...qf, ...sf, bronze, final];

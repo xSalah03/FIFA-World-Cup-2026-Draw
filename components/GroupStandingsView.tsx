@@ -16,7 +16,8 @@ export const GroupStandingsView: React.FC<GroupStandingsViewProps> = ({ groups, 
     let totalGoals = 0;
     let strongestGroup = { id: '', avgRank: 999 };
     
-    Object.entries(groupTables).forEach(([id, teams]) => {
+    // Explicitly cast Object.entries to fix 'unknown' type inference issue for teams
+    (Object.entries(groupTables) as [string, GroupStanding[]][]).forEach(([id, teams]) => {
       const avgRank = teams.reduce((acc, t) => acc + t.rank, 0) / teams.length;
       if (avgRank < strongestGroup.avgRank) {
         strongestGroup = { id, avgRank };
@@ -44,7 +45,8 @@ export const GroupStandingsView: React.FC<GroupStandingsViewProps> = ({ groups, 
 
       {/* Main Groups Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {Object.entries(groupTables).map(([groupId, teams]) => (
+        {/* Explicitly cast Object.entries to fix 'unknown' type inference issue for teams */}
+        {(Object.entries(groupTables) as [string, GroupStanding[]][]).map(([groupId, teams]) => (
           <div key={groupId} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col">
             <div className="bg-slate-50 dark:bg-slate-800/50 px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
               <h3 className="font-black text-lg italic uppercase tracking-wider text-slate-900 dark:text-white">
