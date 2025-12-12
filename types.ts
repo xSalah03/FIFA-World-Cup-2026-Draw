@@ -10,7 +10,7 @@ export enum Confederation {
 }
 
 export type Theme = 'light' | 'dark' | 'system';
-export type AppView = 'draw' | 'knockouts' | 'standings';
+export type AppView = 'draw' | 'knockouts' | 'standings' | 'teams';
 
 export interface Team {
   id: string;

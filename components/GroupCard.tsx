@@ -32,7 +32,6 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, on
     return counts;
   }, [group.teams]);
 
-  // Strength score is an inverted rank for visual representation (0-100)
   const strengthScore = useMemo(() => {
     if (group.teams.length === 0) return 0;
     return Math.max(0, 100 - (avgRank / 2));
@@ -100,9 +99,9 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, on
         isOver && draggedTeam && !isAlreadyInGroup
           ? isValidTarget
             ? action?.type === 'swap' 
-              ? 'border-indigo-500 ring-4 ring-indigo-500/10 bg-indigo-50/10 dark:bg-indigo-950/20' 
-              : 'border-emerald-500 ring-4 ring-emerald-500/10 bg-emerald-50/10 dark:bg-emerald-950/20'
-            : 'border-rose-500 ring-4 ring-rose-500/10 bg-rose-50/10 dark:bg-rose-950/20'
+              ? 'border-indigo-500 ring-4 ring-indigo-500/10 bg-indigo-50/10 dark:bg-indigo-950/30' 
+              : 'border-emerald-500 ring-4 ring-emerald-500/10 bg-emerald-50/10 dark:bg-emerald-950/30'
+            : 'border-rose-500 ring-4 ring-rose-500/10 bg-rose-50/10 dark:bg-rose-950/30'
           : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
       }`}
     >
@@ -124,14 +123,14 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, on
 
       {/* Header */}
       <div className={`px-5 py-3 border-b flex justify-between items-center transition-colors ${
-        isOver && draggedTeam ? (isValidTarget ? 'bg-emerald-600 border-emerald-600' : 'bg-rose-600 border-rose-600') : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800'
+        isOver && draggedTeam ? (isValidTarget ? 'bg-emerald-600 dark:bg-emerald-500 border-emerald-600' : 'bg-rose-600 dark:bg-rose-500 border-rose-600') : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-800'
       }`}>
         <div className="flex flex-col">
           <h3 className={`font-black text-lg tracking-wider italic leading-tight ${isOver && draggedTeam ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
             GROUP {group.id}
           </h3>
-          <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${isOver && draggedTeam ? 'text-white/70' : 'text-slate-400'}`}>
-            <Shield size={10} className={isOver && draggedTeam ? 'text-white/70' : 'text-indigo-500'} />
+          <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${isOver && draggedTeam ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'}`}>
+            <Shield size={10} className={isOver && draggedTeam ? 'text-white/70' : 'text-indigo-500 dark:text-indigo-400'} />
             Bracket {group.id}
           </div>
         </div>
@@ -143,16 +142,16 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, on
                 group.teams.some(t => t.pot === s)
                   ? isOver && draggedTeam ? 'bg-white' : 'bg-indigo-600 dark:bg-indigo-500 shadow-sm'
                   : draggedTeam?.pot === s && isOver && isValidTarget
-                    ? 'bg-emerald-400 animate-pulse scale-125'
-                    : 'bg-slate-200 dark:bg-slate-700/50'
+                    ? 'bg-emerald-400 dark:bg-emerald-300 animate-pulse scale-125'
+                    : 'bg-slate-200 dark:bg-slate-700'
               }`} 
             />
           ))}
         </div>
       </div>
 
-      {/* Team Slots - Fixed height content to prevent layout shifts */}
-      <div className="flex-1 p-4 space-y-2.5 bg-gradient-to-b from-transparent to-slate-50/30 dark:to-slate-950/10 min-h-[180px]">
+      {/* Team Slots */}
+      <div className="flex-1 p-4 space-y-2.5 bg-gradient-to-b from-transparent to-slate-50/50 dark:to-slate-950/20 min-h-[180px]">
         {slots.map((potNum) => {
           const team = group.teams.find(t => t.pot === potNum);
           const isBeingDragged = draggedTeam && team && draggedTeam.id === team.id;
@@ -172,11 +171,11 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, on
                   ? isBeingDragged 
                     ? 'opacity-0 scale-95'
                     : isSwapTarget
-                      ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg scale-105'
-                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/50 text-slate-800 dark:text-slate-100 cursor-grab hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-md' 
+                      ? 'bg-indigo-600 dark:bg-indigo-500 border-indigo-500 text-white shadow-lg scale-105'
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 cursor-grab hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md' 
                   : isTargetPot
                     ? 'bg-emerald-500/10 border-emerald-500 border-dashed animate-pulse ring-2 ring-emerald-500/10'
-                    : 'bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 border-dashed opacity-50'
+                    : 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800/50 border-dashed opacity-50'
               }`}
             >
               <div className={`w-8 text-[9px] font-black tracking-tight ${isSwapTarget ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-600'}`}>P{potNum}</div>
@@ -185,14 +184,14 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, on
                   <TeamIcon code={team.flagCode} name={team.name} className="w-6 h-4" />
                   <span className="font-bold flex-1 truncate text-xs">{team.name}</span>
                   {!isSwapTarget && (
-                    <span className="text-[8px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-900/50 px-1.5 py-0.5 rounded text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50">
+                    <span className="text-[8px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-500 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700">
                       {team.confederation}
                     </span>
                   )}
                   {isSwapTarget && <ArrowLeftRight size={14} className="text-white animate-spin-slow" />}
                 </>
               ) : (
-                <div className={`flex-1 text-[9px] font-black uppercase tracking-widest ${isTargetPot ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-700 opacity-20'}`}>
+                <div className={`flex-1 text-[9px] font-black uppercase tracking-widest ${isTargetPot ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-700 opacity-30'}`}>
                   {isTargetPot ? 'Drop to Place' : 'Pending'}
                 </div>
               )}
@@ -201,26 +200,26 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, allGroups, draggedTeam, on
         })}
       </div>
 
-      {/* Statistics Dashboard Footer - Fixed height and robust background */}
-      <div className="mt-auto px-5 py-3 bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between min-h-[44px]">
+      {/* Statistics Dashboard Footer */}
+      <div className="mt-auto px-5 py-3 bg-slate-100/50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between min-h-[44px]">
         <div className="flex flex-wrap gap-1.5 items-center max-w-[70%]">
           {group.teams.length > 0 ? (
             <>
-              <Globe size={11} className="text-slate-400 mr-0.5 shrink-0" />
+              <Globe size={11} className="text-slate-400 dark:text-slate-600 mr-0.5 shrink-0" />
               {Object.entries(confedCounts).map(([confed, count]) => (
-                <span key={confed} className="text-[9px] font-black bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shadow-sm">
+                <span key={confed} className="text-[9px] font-black bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shadow-sm">
                   {confed} <span className="text-indigo-600 dark:text-indigo-400">{count}</span>
                 </span>
               ))}
             </>
           ) : (
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">No teams assigned</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 italic">No teams assigned</span>
           )}
         </div>
         
         {group.teams.length > 0 && (
           <div className="flex flex-col items-end">
-            <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-500/20 shadow-sm transition-all hover:scale-105">
+            <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-500/30 shadow-sm transition-all hover:scale-105">
               <Activity size={10} className="text-indigo-600 dark:text-indigo-400" />
               <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300">
                 {strengthScore.toFixed(0)}% <span className="text-[8px] font-bold opacity-70 uppercase tracking-tighter">Power</span>

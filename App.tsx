@@ -11,7 +11,8 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { SavedDrawsManager } from './components/SavedDrawsManager';
 import { KnockoutStage } from './components/KnockoutStage';
 import { GroupStandingsView } from './components/GroupStandingsView';
-import { Trophy, Globe, LayoutDashboard, GitBranch, ListOrdered } from 'lucide-react';
+import { TeamsListView } from './components/TeamsListView';
+import { Trophy, Globe, LayoutDashboard, GitBranch, ListOrdered, Users } from 'lucide-react';
 
 const getInitialCompletedState = (): DrawState => {
   const findTeam = (id: string) => MOCK_TEAMS.find(t => t.id === id)!;
@@ -80,7 +81,6 @@ const App: React.FC = () => {
 
     applyTheme();
 
-    // Listen for system theme changes if 'system' is selected
     if (theme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handler = () => applyTheme();
@@ -338,52 +338,58 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-6 sticky top-0 z-30 shadow-sm dark:shadow-2xl">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20">
-              <Trophy className="text-white" size={32} />
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4 sm:py-6 sticky top-0 z-30 shadow-sm dark:shadow-2xl">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6">
+          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <div className="bg-indigo-600 p-2 sm:p-2.5 rounded-xl shadow-lg shadow-indigo-500/20 shrink-0">
+              <Trophy className="text-white" size={24} />
             </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">
-                FIFA World Cup 2026<span className="text-indigo-600 dark:text-indigo-500 ml-1">Draw</span>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic truncate">
+                WC 2026<span className="text-indigo-600 dark:text-indigo-500 ml-1">Draw</span>
               </h1>
-              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">
-                <Globe size={14} className="text-indigo-500 dark:text-indigo-400" />
-                <span>OFFICIAL SIMULATOR · 48 TEAMS</span>
+              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[10px] sm:text-sm font-medium">
+                <Globe size={12} className="text-indigo-500 dark:text-indigo-400 shrink-0" />
+                <span className="truncate">OFFICIAL SIMULATOR · 48 TEAMS</span>
               </div>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+          <div className="flex flex-row items-center justify-between sm:justify-end gap-3 sm:gap-6 w-full sm:w-auto">
             <SavedDrawsManager currentState={state} onLoad={handleLoadState} />
-            <div className="h-10 w-px bg-slate-200 dark:bg-slate-800 hidden lg:block"></div>
+            <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden md:block"></div>
             <ThemeToggle theme={theme} setTheme={setTheme} />
           </div>
         </div>
       </header>
 
-      {state.isComplete && (
-        <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-[89px] z-20 flex justify-center">
-          <div className="flex p-1 gap-1">
-            <button onClick={() => setView('draw')} className={`flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg ${view === 'draw' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-              <LayoutDashboard size={18} /> Brackets
-            </button>
-            <button onClick={() => setView('standings')} className={`flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg ${view === 'standings' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-              <ListOrdered size={18} /> Standings
-            </button>
-            <button onClick={() => setView('knockouts')} className={`flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg ${view === 'knockouts' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-              <GitBranch size={18} /> Knockouts
-            </button>
-          </div>
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-[108px] sm:top-[89px] z-20 flex justify-center">
+        <div className="flex p-1 gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar max-w-full">
+          <button onClick={() => setView('teams')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all rounded-lg shrink-0 ${view === 'teams' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+            <Users size={14} /> Teams
+          </button>
+          <button onClick={() => setView('draw')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all rounded-lg shrink-0 ${view === 'draw' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+            <LayoutDashboard size={14} /> Brackets
+          </button>
+          {state.isComplete && (
+            <>
+              <button onClick={() => setView('standings')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all rounded-lg shrink-0 ${view === 'standings' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                <ListOrdered size={14} /> Standings
+              </button>
+              <button onClick={() => setView('knockouts')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all rounded-lg shrink-0 ${view === 'knockouts' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                <GitBranch size={14} /> Knockouts
+              </button>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
-      <main className="flex-1 p-4 sm:p-8 max-w-[1600px] mx-auto w-full space-y-12">
+      <main className="flex-1 p-3 sm:p-8 max-w-[1600px] mx-auto w-full space-y-8 sm:space-y-12">
+        {view === 'teams' && <TeamsListView />}
         {view === 'draw' && (
           <>
             <section>
-              <div className="flex items-center gap-4 mb-6"><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div><h2 className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">World Ranking Distribution</h2><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="flex items-center gap-4 mb-4 sm:mb-6"><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div><h2 className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[8px] sm:text-[10px] text-center">World Ranking Pots</h2><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div></div>
+              <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {state.pots.map((pot, idx) => {
                   const isDrawnFully = state.isComplete || state.currentPotIndex > idx;
                   const isCurrentlyDrawing = !state.isComplete && state.currentPotIndex === idx;
@@ -393,9 +399,9 @@ const App: React.FC = () => {
               </div>
             </section>
             <section>
-              <div className="flex items-center gap-4 mb-8"><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div><h2 className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs">Tournament Brackets (A-L)</h2><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div></div>
-              {state.error && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 p-4 rounded-xl mb-8 flex items-center justify-between gap-3 text-sm font-semibold animate-in zoom-in-95"><div className="flex items-center gap-3"><span className="text-lg">⚠️</span>{state.error}</div><button onClick={() => setState(s => ({ ...s, error: undefined }))} className="px-3 py-1 bg-rose-500/20 rounded hover:bg-rose-500/40 transition-colors uppercase text-[10px]">Close</button></div>}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="flex items-center gap-4 mb-6 sm:mb-8"><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div><h2 className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[8px] sm:text-[10px] text-center">Tournament Brackets (A-L)</h2><div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div></div>
+              {state.error && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 p-3 sm:p-4 rounded-xl mb-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm font-semibold animate-in zoom-in-95"><div className="flex items-center gap-3"><span className="text-lg">⚠️</span>{state.error}</div><button onClick={() => setState(s => ({ ...s, error: undefined }))} className="px-3 py-1 bg-rose-500/20 rounded hover:bg-rose-500/40 transition-colors uppercase text-[10px] w-full sm:w-auto">Dismiss</button></div>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {state.groups.map((group) => <GroupCard key={group.id} group={group} allGroups={state.groups} onMoveTeam={moveTeam} draggedTeam={draggedTeam} onDragStart={setDraggedTeam} onDragEnd={() => setDraggedTeam(null)} />)}
               </div>
             </section>
